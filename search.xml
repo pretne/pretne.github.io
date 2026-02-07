@@ -1,19 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>摄影散步：清晨的光</title>
-    <url>/2026/02/06/photo-walk-morning-light/</url>
-    <content><![CDATA[<p>清晨的光让城市显得安静而新鲜。这里是一次短途散步的几张照片。</p>
-<h2 id="画面-1"><a href="#画面-1" class="headerlink" title="画面 1"></a>画面 1</h2><p><img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80" alt="街灯"></p>
-<h2 id="画面-2"><a href="#画面-2" class="headerlink" title="画面 2"></a>画面 2</h2><p><img src="https://images.unsplash.com/photo-1471918743850-8e96e69e332d?auto=format&fit=crop&w=1400&q=80" alt="咖啡停留"></p>
-<h2 id="画面-3"><a href="#画面-3" class="headerlink" title="画面 3"></a>画面 3</h2><p><img src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80" alt="小路"></p>
+    <title>设计笔记：干净的版式</title>
+    <url>/2026/02/05/design-notes-clean-layout/</url>
+    <content><![CDATA[<p>干净的版式不是把一切删掉，而是让重要信息更容易被阅读。</p>
+<h2 id="原则"><a href="#原则" class="headerlink" title="原则"></a>原则</h2><ul>
+<li>使用清晰的字号层级</li>
+<li>将行宽控制在 60 到 80 字符左右</li>
+<li>给图片留出充足的留白</li>
+</ul>
+<h2 id="一个小代码片段"><a href="#一个小代码片段" class="headerlink" title="一个小代码片段"></a>一个小代码片段</h2><figure class="highlight css"><table><tr><td class="code"><pre><span class="line"><span class="selector-pseudo">:root</span> &#123;</span><br><span class="line">  <span class="attr">--content-width</span>: <span class="number">720px</span>;</span><br><span class="line">  <span class="attr">--line-height</span>: <span class="number">1.7</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="selector-class">.article</span> &#123;</span><br><span class="line">  <span class="attribute">max-width</span>: <span class="built_in">var</span>(--content-width);</span><br><span class="line">  <span class="attribute">line-height</span>: <span class="built_in">var</span>(--line-height);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>小小的约束让页面更有秩序感。</p>
 ]]></content>
       <categories>
-        <category>摄影</category>
+        <category>设计</category>
       </categories>
       <tags>
-        <tag>照片</tag>
-        <tag>城市</tag>
+        <tag>界面</tag>
+        <tag>字体</tag>
       </tags>
   </entry>
   <entry>
@@ -36,24 +41,19 @@
       </tags>
   </entry>
   <entry>
-    <title>设计笔记：干净的版式</title>
-    <url>/2026/02/05/design-notes-clean-layout/</url>
-    <content><![CDATA[<p>干净的版式不是把一切删掉，而是让重要信息更容易被阅读。</p>
-<h2 id="原则"><a href="#原则" class="headerlink" title="原则"></a>原则</h2><ul>
-<li>使用清晰的字号层级</li>
-<li>将行宽控制在 60 到 80 字符左右</li>
-<li>给图片留出充足的留白</li>
-</ul>
-<h2 id="一个小代码片段"><a href="#一个小代码片段" class="headerlink" title="一个小代码片段"></a>一个小代码片段</h2><figure class="highlight css"><table><tr><td class="code"><pre><span class="line"><span class="selector-pseudo">:root</span> &#123;</span><br><span class="line">  <span class="attr">--content-width</span>: <span class="number">720px</span>;</span><br><span class="line">  <span class="attr">--line-height</span>: <span class="number">1.7</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="selector-class">.article</span> &#123;</span><br><span class="line">  <span class="attribute">max-width</span>: <span class="built_in">var</span>(--content-width);</span><br><span class="line">  <span class="attribute">line-height</span>: <span class="built_in">var</span>(--line-height);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>小小的约束让页面更有秩序感。</p>
+    <title>摄影散步：清晨的光</title>
+    <url>/2026/02/06/photo-walk-morning-light/</url>
+    <content><![CDATA[<p>清晨的光让城市显得安静而新鲜。这里是一次短途散步的几张照片。</p>
+<h2 id="画面-1"><a href="#画面-1" class="headerlink" title="画面 1"></a>画面 1</h2><p><img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80" alt="街灯"></p>
+<h2 id="画面-2"><a href="#画面-2" class="headerlink" title="画面 2"></a>画面 2</h2><p><img src="https://images.unsplash.com/photo-1471918743850-8e96e69e332d?auto=format&fit=crop&w=1400&q=80" alt="咖啡停留"></p>
+<h2 id="画面-3"><a href="#画面-3" class="headerlink" title="画面 3"></a>画面 3</h2><p><img src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80" alt="小路"></p>
 ]]></content>
       <categories>
-        <category>设计</category>
+        <category>摄影</category>
       </categories>
       <tags>
-        <tag>界面</tag>
-        <tag>字体</tag>
+        <tag>照片</tag>
+        <tag>城市</tag>
       </tags>
   </entry>
   <entry>
