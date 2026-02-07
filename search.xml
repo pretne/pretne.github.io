@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>摄影散步：清晨的光</title>
+    <url>/2026/02/06/photo-walk-morning-light/</url>
+    <content><![CDATA[<p>清晨的光让城市显得安静而新鲜。这里是一次短途散步的几张照片。</p>
+<h2 id="画面-1"><a href="#画面-1" class="headerlink" title="画面 1"></a>画面 1</h2><p><img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80" alt="街灯"></p>
+<h2 id="画面-2"><a href="#画面-2" class="headerlink" title="画面 2"></a>画面 2</h2><p><img src="https://images.unsplash.com/photo-1471918743850-8e96e69e332d?auto=format&fit=crop&w=1400&q=80" alt="咖啡停留"></p>
+<h2 id="画面-3"><a href="#画面-3" class="headerlink" title="画面 3"></a>画面 3</h2><p><img src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80" alt="小路"></p>
+]]></content>
+      <categories>
+        <category>摄影</category>
+      </categories>
+      <tags>
+        <tag>照片</tag>
+        <tag>城市</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>设计笔记：干净的版式</title>
+    <url>/2026/02/05/design-notes-clean-layout/</url>
+    <content><![CDATA[<p>干净的版式不是把一切删掉，而是让重要信息更容易被阅读。</p>
+<h2 id="原则"><a href="#原则" class="headerlink" title="原则"></a>原则</h2><ul>
+<li>使用清晰的字号层级</li>
+<li>将行宽控制在 60 到 80 字符左右</li>
+<li>给图片留出充足的留白</li>
+</ul>
+<h2 id="一个小代码片段"><a href="#一个小代码片段" class="headerlink" title="一个小代码片段"></a>一个小代码片段</h2><figure class="highlight css"><table><tr><td class="code"><pre><span class="line"><span class="selector-pseudo">:root</span> &#123;</span><br><span class="line">  <span class="attr">--content-width</span>: <span class="number">720px</span>;</span><br><span class="line">  <span class="attr">--line-height</span>: <span class="number">1.7</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="selector-class">.article</span> &#123;</span><br><span class="line">  <span class="attribute">max-width</span>: <span class="built_in">var</span>(--content-width);</span><br><span class="line">  <span class="attribute">line-height</span>: <span class="built_in">var</span>(--line-height);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>小小的约束让页面更有秩序感。</p>
+]]></content>
+      <categories>
+        <category>设计</category>
+      </categories>
+      <tags>
+        <tag>界面</tag>
+        <tag>字体</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>博客起步</title>
+    <url>/2026/02/07/hello-world/</url>
+    <content><![CDATA[<p>欢迎来到新博客。这里会记录短笔记、照片和每周回顾。</p>
+<h2 id="你会看到什么"><a href="#你会看到什么" class="headerlink" title="你会看到什么"></a>你会看到什么</h2><ul>
+<li>清晰分段的短文</li>
+<li>图文随笔与视觉笔记</li>
+<li>整理好的标签、分类与归档</li>
+</ul>
+<h2 id="我如何写作"><a href="#我如何写作" class="headerlink" title="我如何写作"></a>我如何写作</h2><p>我会保持篇幅短小，用少量标题组织结构，并给每篇文章配一张清晰的封面，保证归档统一。</p>
+]]></content>
+      <categories>
+        <category>笔记</category>
+      </categories>
+      <tags>
+        <tag>入门</tag>
+        <tag>搭建</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>每周归档 01</title>
+    <url>/2026/02/04/weekly-archive-01/</url>
+    <content><![CDATA[<h2 id="本周记录"><a href="#本周记录" class="headerlink" title="本周记录"></a>本周记录</h2><ul>
+<li>写了一篇关于干净版式的短文</li>
+<li>配置了标签、分类和归档</li>
+<li>从清晨散步里选了三张照片</li>
+</ul>
+<h2 id="本周链接"><a href="#本周链接" class="headerlink" title="本周链接"></a>本周链接</h2><ul>
+<li><a href="https://hexo.io/">https://hexo.io</a></li>
+<li><a href="https://butterfly.js.org/">https://butterfly.js.org</a></li>
+</ul>
+<h2 id="下周计划"><a href="#下周计划" class="headerlink" title="下周计划"></a>下周计划</h2><p>更多文章，少些干扰。</p>
+]]></content>
+      <categories>
+        <category>周报</category>
+      </categories>
+      <tags>
+        <tag>周记</tag>
+        <tag>回顾</tag>
+      </tags>
+  </entry>
+</search>
