@@ -1,6 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>使用 Hexo + Butterfly 搭建我的个人博客</title>
+    <url>/2026/02/05/hexo-butterfly-blog-setup/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>很早之前就想搭一个属于自己的博客，但一直停留在“想做”的阶段。  </p>
+<p>这篇文章主要记录我使用 <strong>Hexo + Butterfly</strong> 搭建博客的过程，一方面作为备忘，另一方面也算是这个博客的起点。</p>
+<hr>
+<h2 id="关于技术选型"><a href="#关于技术选型" class="headerlink" title="关于技术选型"></a>关于技术选型</h2><p>一开始我也考虑过很多方案，比如 WordPress，或者干脆用前端框架自己写一套。<br>但综合考虑之后，还是选择了 Hexo。</p>
+<p>原因其实很简单：<br>Hexo 是静态博客，结构清晰，写文章就是写 Markdown，不需要关心数据库和后端服务。对目前的我来说，这种“专注写作本身”的方式更合适。</p>
+<p>在主题方面，我选择了 Butterfly。这个主题整体风格简洁，配置项比较全，文档也比较完善，适合长期维护。</p>
+<hr>
+<h2 id="Hexo-的安装与初始化"><a href="#Hexo-的安装与初始化" class="headerlink" title="Hexo 的安装与初始化"></a>Hexo 的安装与初始化</h2><p>本地环境准备好 Node.js 和 Git 之后，就可以直接安装 Hexo CLI。</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm install -g hexo-cli</span><br></pre></td></tr></table></figure>
+
+<p>接着初始化博客目录：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo init blog</span><br><span class="line"><span class="built_in">cd</span> blog</span><br><span class="line">npm install</span><br></pre></td></tr></table></figure>
+
+<p>随后在 themes 目录下克隆主题仓库：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/jerryc127/hexo-theme-butterfly.git</span><br></pre></td></tr></table></figure>
+
+<p>然后在站点配置文件 _config.yml 中，把主题改成：</p>
+<figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="attr">theme:</span> <span class="string">butterfly</span></span><br></pre></td></tr></table></figure>
+
+<p>接下来便是完善一些基础配置和页面。</p>
+<hr>
+<h2 id="添加-Live2D-小人"><a href="#添加-Live2D-小人" class="headerlink" title="添加 Live2D 小人"></a>添加 Live2D 小人</h2><p>为了让博客更有趣一些，我在右下角添加了一个 Live2D 小人。Butterfly 主题支持通过代码注入的方式快速集成。</p>
+<h3 id="配置方法"><a href="#配置方法" class="headerlink" title="配置方法"></a>配置方法</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>inject</code> 配置段，在 <code>bottom</code> 部分添加以下代码：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">inject:</span></span><br><span class="line">  <span class="attr">head:</span></span><br><span class="line">    <span class="comment"># ... 其他配置</span></span><br><span class="line">  <span class="attr">bottom:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script src=&quot;https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js&quot;&gt;&lt;/script&gt;&#x27;</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script&gt;L2Dwidget.init(&#123; model: &#123; jsonPath: &quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json&quot; &#125;, display: &#123; position: &quot;right&quot;, width: 150, height: 300, hOffset: 30, vOffset: -10 &#125;, mobile: &#123; show: true, scale: 0.6 &#125;, react: &#123; opacityDefault: 0.8, opacityOnHover: 0.2 &#125; &#125;);&lt;/script&gt;&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="参数说明"><a href="#参数说明" class="headerlink" title="参数说明"></a>参数说明</h3><ul>
+<li><strong>model.jsonPath</strong>：角色模型的 CDN 地址，这里使用的是 Shizuku（时雨）模型</li>
+<li><strong>display.position</strong>：显示位置（left&#x2F;right），这里设为右下角</li>
+<li><strong>display.width&#x2F;height</strong>：模型宽高（像素）</li>
+<li><strong>display.hOffset&#x2F;vOffset</strong>：水平和垂直偏移量</li>
+<li><strong>mobile.show</strong>：是否在移动端显示</li>
+<li><strong>mobile.scale</strong>：移动端缩放比例</li>
+<li><strong>react.opacityDefault</strong>：默认透明度</li>
+<li><strong>react.opacityOnHover</strong>：鼠标悬停时的透明度（0.2 表示鼠标移上去会变淡）</li>
+</ul>
+<h3 id="可选模型"><a href="#可选模型" class="headerlink" title="可选模型"></a>可选模型</h3><p>除了 Shizuku，还可以选择其他模型：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Koharu（小春）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-koharu@1.0.5/assets/koharu.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Hibiki（响）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-hibiki@1.0.5/assets/hibiki.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Miku（初音未来）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-miku@1.0.5/assets/miku.model.json&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>只需要替换 <code>jsonPath</code> 的值即可切换角色。</p>
+]]></content>
+      <categories>
+        <category>博客搭建</category>
+      </categories>
+      <tags>
+        <tag>Hexo</tag>
+        <tag>Butterfly</tag>
+        <tag>博客</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>为 Hexo 博客添加 Giscus 评论系统</title>
     <url>/2026/02/08/add-giscus-comments/</url>
     <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>为博客添加评论功能是增强互动性的重要一步。这篇文章记录我为 Hexo + Butterfly 博客集成 Giscus 评论系统的完整过程。</p>
@@ -79,58 +131,6 @@
         <tag>Hexo</tag>
         <tag>Giscus</tag>
         <tag>评论系统</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>使用 Hexo + Butterfly 搭建我的个人博客</title>
-    <url>/2026/02/05/hexo-butterfly-blog-setup/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>很早之前就想搭一个属于自己的博客，但一直停留在“想做”的阶段。  </p>
-<p>这篇文章主要记录我使用 <strong>Hexo + Butterfly</strong> 搭建博客的过程，一方面作为备忘，另一方面也算是这个博客的起点。</p>
-<hr>
-<h2 id="关于技术选型"><a href="#关于技术选型" class="headerlink" title="关于技术选型"></a>关于技术选型</h2><p>一开始我也考虑过很多方案，比如 WordPress，或者干脆用前端框架自己写一套。<br>但综合考虑之后，还是选择了 Hexo。</p>
-<p>原因其实很简单：<br>Hexo 是静态博客，结构清晰，写文章就是写 Markdown，不需要关心数据库和后端服务。对目前的我来说，这种“专注写作本身”的方式更合适。</p>
-<p>在主题方面，我选择了 Butterfly。这个主题整体风格简洁，配置项比较全，文档也比较完善，适合长期维护。</p>
-<hr>
-<h2 id="Hexo-的安装与初始化"><a href="#Hexo-的安装与初始化" class="headerlink" title="Hexo 的安装与初始化"></a>Hexo 的安装与初始化</h2><p>本地环境准备好 Node.js 和 Git 之后，就可以直接安装 Hexo CLI。</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm install -g hexo-cli</span><br></pre></td></tr></table></figure>
-
-<p>接着初始化博客目录：</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo init blog</span><br><span class="line"><span class="built_in">cd</span> blog</span><br><span class="line">npm install</span><br></pre></td></tr></table></figure>
-
-<p>随后在 themes 目录下克隆主题仓库：</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/jerryc127/hexo-theme-butterfly.git</span><br></pre></td></tr></table></figure>
-
-<p>然后在站点配置文件 _config.yml 中，把主题改成：</p>
-<figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="attr">theme:</span> <span class="string">butterfly</span></span><br></pre></td></tr></table></figure>
-
-<p>接下来便是完善一些基础配置和页面。</p>
-<hr>
-<h2 id="添加-Live2D-小人"><a href="#添加-Live2D-小人" class="headerlink" title="添加 Live2D 小人"></a>添加 Live2D 小人</h2><p>为了让博客更有趣一些，我在右下角添加了一个 Live2D 小人。Butterfly 主题支持通过代码注入的方式快速集成。</p>
-<h3 id="配置方法"><a href="#配置方法" class="headerlink" title="配置方法"></a>配置方法</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>inject</code> 配置段，在 <code>bottom</code> 部分添加以下代码：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">inject:</span></span><br><span class="line">  <span class="attr">head:</span></span><br><span class="line">    <span class="comment"># ... 其他配置</span></span><br><span class="line">  <span class="attr">bottom:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script src=&quot;https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js&quot;&gt;&lt;/script&gt;&#x27;</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script&gt;L2Dwidget.init(&#123; model: &#123; jsonPath: &quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json&quot; &#125;, display: &#123; position: &quot;right&quot;, width: 150, height: 300, hOffset: 30, vOffset: -10 &#125;, mobile: &#123; show: true, scale: 0.6 &#125;, react: &#123; opacityDefault: 0.8, opacityOnHover: 0.2 &#125; &#125;);&lt;/script&gt;&#x27;</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="参数说明"><a href="#参数说明" class="headerlink" title="参数说明"></a>参数说明</h3><ul>
-<li><strong>model.jsonPath</strong>：角色模型的 CDN 地址，这里使用的是 Shizuku（时雨）模型</li>
-<li><strong>display.position</strong>：显示位置（left&#x2F;right），这里设为右下角</li>
-<li><strong>display.width&#x2F;height</strong>：模型宽高（像素）</li>
-<li><strong>display.hOffset&#x2F;vOffset</strong>：水平和垂直偏移量</li>
-<li><strong>mobile.show</strong>：是否在移动端显示</li>
-<li><strong>mobile.scale</strong>：移动端缩放比例</li>
-<li><strong>react.opacityDefault</strong>：默认透明度</li>
-<li><strong>react.opacityOnHover</strong>：鼠标悬停时的透明度（0.2 表示鼠标移上去会变淡）</li>
-</ul>
-<h3 id="可选模型"><a href="#可选模型" class="headerlink" title="可选模型"></a>可选模型</h3><p>除了 Shizuku，还可以选择其他模型：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Koharu（小春）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-koharu@1.0.5/assets/koharu.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Hibiki（响）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-hibiki@1.0.5/assets/hibiki.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Miku（初音未来）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-miku@1.0.5/assets/miku.model.json&quot;</span></span><br></pre></td></tr></table></figure>
-
-<p>只需要替换 <code>jsonPath</code> 的值即可切换角色。</p>
-]]></content>
-      <categories>
-        <category>博客搭建</category>
-      </categories>
-      <tags>
-        <tag>Hexo</tag>
-        <tag>Butterfly</tag>
-        <tag>博客</tag>
       </tags>
   </entry>
 </search>
