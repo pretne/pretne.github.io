@@ -1,138 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>评论系统设计与实现</title>
-    <url>/2026/02/11/comment-system/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>本文记录我在博客项目中实现评论功能时，涉及的一些细节。</p>
-<hr>
-<h2 id="一、后端实现"><a href="#一、后端实现" class="headerlink" title="一、后端实现"></a>一、后端实现</h2><h3 id="1-评论实体设计（Comment）"><a href="#1-评论实体设计（Comment）" class="headerlink" title="1. 评论实体设计（Comment）"></a>1. 评论实体设计（Comment）</h3><p>评论表的核心在于<strong>自引用关系</strong>：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Entity</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Comment</span> &#123;</span><br><span class="line">    <span class="meta">@Id</span></span><br><span class="line">    <span class="keyword">private</span> Long id;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> String content;  <span class="comment">// VARCHAR(1000)</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> Article article;  <span class="comment">// 所属文章</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> User author;  <span class="comment">// 评论作者</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.LAZY)</span></span><br><span class="line">    <span class="keyword">private</span> Comment parentComment;  <span class="comment">// 父评论（自引用关系）</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@CreationTimestamp</span></span><br><span class="line">    <span class="keyword">private</span> LocalDateTime createdAt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="设计要点"><a href="#设计要点" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
-<li><code>parentComment</code> 指向自身，实现评论嵌套</li>
-<li>父评论使用 <code>LAZY</code>，避免循环加载</li>
-<li>作者、文章使用 <code>EAGER</code>，避免访问时频繁触发延迟加载</li>
-<li>不在实体中直接维护 children，避免 ORM 复杂度失控</li>
-</ul>
-<blockquote>
-<p>高并发场景应使用join fetch 或DTO投影来精确控制查询行为。</p>
-</blockquote>
-<hr>
-<h3 id="2-数据访问层（Repository）"><a href="#2-数据访问层（Repository）" class="headerlink" title="2. 数据访问层（Repository）"></a>2. 数据访问层（Repository）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">CommentRepository</span> <span class="keyword">extends</span> <span class="title class_">JpaRepository</span>&lt;Comment, Long&gt; &#123;</span><br><span class="line">    <span class="comment">// 按文章ID查询，升序排列（老评论在前）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByArticleIdOrderByCreatedAtAsc</span><span class="params">(Long articleId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 按作者ID查询（用于个人主页）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByAuthorId</span><span class="params">(Long authorId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 查找子评论（用于级联删除）</span></span><br><span class="line">    List&lt;Comment&gt; <span class="title function_">findByParentCommentId</span><span class="params">(Long parentId)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p> 👉 <strong>递归删除时依赖 <code>findByParentCommentId</code> 查找子节点</strong></p>
-<blockquote>
-<p>评论属于高频读写表，后续应在数据库层添加必要索引。</p>
-</blockquote>
-<hr>
-<h3 id="3-评论创建逻辑（Service）"><a href="#3-评论创建逻辑（Service）" class="headerlink" title="3. 评论创建逻辑（Service）"></a>3. 评论创建逻辑（Service）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> CommentDTO <span class="title function_">createComment</span><span class="params">(Long articleId, Long userId, String content, Long parentId)</span> &#123;</span><br><span class="line">    <span class="comment">// 验证文章和用户存在</span></span><br><span class="line">    <span class="type">Article</span> <span class="variable">article</span> <span class="operator">=</span> articleRepository.findById(articleId)...</span><br><span class="line">    <span class="type">User</span> <span class="variable">author</span> <span class="operator">=</span> userRepository.findById(userId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 验证内容非空</span></span><br><span class="line">    <span class="keyword">if</span> (content == <span class="literal">null</span> || content.trim().isEmpty()) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;评论内容不能为空&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 如果是回复，验证父评论</span></span><br><span class="line">    <span class="keyword">if</span> (parentId != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="type">Comment</span> <span class="variable">parent</span> <span class="operator">=</span> commentRepository.findById(parentId)...</span><br><span class="line">        <span class="comment">// 确保父评论属于同一篇文章</span></span><br><span class="line">        <span class="keyword">if</span> (!parent.getArticle().getId().equals(articleId)) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;父评论与文章不匹配&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        comment.setParentComment(parent);<span class="comment">// 设置parentcomment</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 保存并转换为DTO</span></span><br><span class="line">    comment = commentRepository.save(comment);</span><br><span class="line">    <span class="keyword">return</span> convertToDTO(comment, userId);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="核心约束点"><a href="#核心约束点" class="headerlink" title="核心约束点"></a>核心约束点</h4><ul>
-<li>回复的父评论必须属于同一篇文章</li>
-<li>所有评论统一通过 DTO 返回，避免实体泄露</li>
-<li>创建逻辑不做层级限制，展示逻辑交给前端</li>
-</ul>
-<hr>
-<h3 id="4-递归级联删除"><a href="#4-递归级联删除" class="headerlink" title="4. 递归级联删除"></a>4. 递归级联删除</h3><p>删除一条评论时，必须同时删除：</p>
-<ol>
-<li>所有子评论（递归）</li>
-<li>所有关联的点赞记录</li>
-<li>保证外键约束不报错</li>
-<li>保证操作原子性</li>
-</ol>
-<h4 id="实现方案"><a href="#实现方案" class="headerlink" title="实现方案"></a>实现方案</h4><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">deleteComment</span><span class="params">(Long commentId, Long userId)</span> &#123;</span><br><span class="line">    <span class="type">Comment</span> <span class="variable">comment</span> <span class="operator">=</span> commentRepository.findById(commentId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 权限检查：只能删除自己的评论</span></span><br><span class="line">    <span class="keyword">if</span> (!comment.getAuthor().getId().equals(userId)) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;只能删除自己的评论&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deleteCommentWithChildren(comment);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 递归删除子评论</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">deleteCommentWithChildren</span><span class="params">(Comment comment)</span> &#123;</span><br><span class="line">    <span class="comment">// 递归删除所有子评论</span></span><br><span class="line">    List&lt;Comment&gt; children = commentRepository.findByParentCommentId(comment.getId());</span><br><span class="line">    <span class="keyword">for</span> (Comment child : children) &#123;</span><br><span class="line">        deleteCommentWithChildren(child);  <span class="comment">// 递归调用</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 先删除该评论的所有点赞（解决FK约束）</span></span><br><span class="line">    commentLikeRepository.deleteByCommentId(comment.getId());</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 最后删除评论本身</span></span><br><span class="line">    commentRepository.deleteById(comment.getId());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="设计要点-1"><a href="#设计要点-1" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
-<li>深度优先遍历（DFS）</li>
-<li>时间复杂度 O(n)</li>
-<li>使用事务保证一致性</li>
-<li>显式控制删除顺序，避免外键（FK）约束问题</li>
-</ul>
-<blockquote>
-<p>为避免复杂递归以及保留上下文，可考虑采用逻辑删除<code>private boolean deleted;</code>。</p>
-</blockquote>
-<hr>
-<h2 id="二、前端实现"><a href="#二、前端实现" class="headerlink" title="二、前端实现"></a>二、前端实现</h2><h3 id="1-数据结构设计"><a href="#1-数据结构设计" class="headerlink" title="1. 数据结构设计"></a>1. 数据结构设计</h3><p>前端接收的是<strong>平铺数组</strong>，自行构建树结构：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">data</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="attr">comments</span>: [],        <span class="comment">// 平铺的评论列表（从API获取）</span></span><br><span class="line">        <span class="attr">commentTree</span>: [],     <span class="comment">// 树型结构（用于渲染）</span></span><br><span class="line">        <span class="attr">newCommentContent</span>: <span class="string">&#x27;&#x27;</span>,  <span class="comment">// 新评论内容</span></span><br><span class="line">        <span class="attr">replyingTo</span>: <span class="literal">null</span>,    <span class="comment">// 当前回复的评论对象</span></span><br><span class="line">        <span class="attr">replyContent</span>: <span class="string">&#x27;&#x27;</span>     <span class="comment">// 回复内容</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>选择前端构建树结构而不是后端直接递归组装，是为了保持接口简单、避免后端递归查询带来的复杂度，同时让前端掌控展示策略。</p>
-</blockquote>
-<hr>
-<h3 id="2-评论树构建与展平"><a href="#2-评论树构建与展平" class="headerlink" title="2. 评论树构建与展平"></a>2. 评论树构建与展平</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">buildCommentTree</span>(<span class="params">comments</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> map = <span class="keyword">new</span> <span class="title class_">Map</span>();</span><br><span class="line">    <span class="keyword">const</span> roots = [];</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 1. 创建映射表，每个评论作为一个节点</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        map.<span class="title function_">set</span>(comment.<span class="property">id</span>, &#123; ...comment, <span class="attr">children</span>: [] &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 构建父子关系</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">const</span> node = map.<span class="title function_">get</span>(comment.<span class="property">id</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 顶级评论（没有父评论）</span></span><br><span class="line">        <span class="keyword">if</span> (!comment.<span class="property">parentId</span>) &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 找到最顶层的父评论（展平多层嵌套）</span></span><br><span class="line">        <span class="keyword">let</span> parent = map.<span class="title function_">get</span>(comment.<span class="property">parentId</span>);</span><br><span class="line">        <span class="keyword">while</span> (parent &amp;&amp; parent.<span class="property">parentId</span>) &#123;</span><br><span class="line">            parent = map.<span class="title function_">get</span>(parent.<span class="property">parentId</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 将当前评论添加到顶层父评论的children中</span></span><br><span class="line">        <span class="keyword">if</span> (parent) &#123;</span><br><span class="line">            parent.<span class="property">children</span>.<span class="title function_">push</span>(node);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);  <span class="comment">// 孤儿节点作为顶级评论</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> roots;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="设计要点-2"><a href="#设计要点-2" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
-<li>支持任意层级回复</li>
-<li>UI 只展示两层</li>
-<li>不需要后端额外接口</li>
-<li>构建复杂度 O(n)</li>
-</ul>
-<blockquote>
-<p>前端只展示两层结构，避免前端无限递归渲染</p>
-</blockquote>
-]]></content>
-      <categories>
-        <category>项目总结</category>
-      </categories>
-      <tags>
-        <tag>Spring Boot</tag>
-        <tag>数据库设计</tag>
-        <tag>评论系统</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>使用 Hexo + Butterfly 搭建我的个人博客</title>
-    <url>/2026/02/05/hexo-butterfly-blog-setup/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>很早之前就想搭一个属于自己的博客，但一直停留在“想做”的阶段。  </p>
-<p>这篇文章主要记录我使用 <strong>Hexo + Butterfly</strong> 搭建博客的过程，一方面作为备忘，另一方面也算是这个博客的起点。</p>
-<hr>
-<h2 id="关于技术选型"><a href="#关于技术选型" class="headerlink" title="关于技术选型"></a>关于技术选型</h2><p>一开始我也考虑过很多方案，比如 WordPress，或者干脆用前端框架自己写一套。<br>但综合考虑之后，还是选择了 Hexo。</p>
-<p>原因其实很简单：<br>Hexo 是静态博客，结构清晰，写文章就是写 Markdown，不需要关心数据库和后端服务。对目前的我来说，这种“专注写作本身”的方式更合适。</p>
-<p>在主题方面，我选择了 Butterfly。这个主题整体风格简洁，配置项比较全，文档也比较完善，适合长期维护。</p>
-<hr>
-<h2 id="Hexo-的安装与初始化"><a href="#Hexo-的安装与初始化" class="headerlink" title="Hexo 的安装与初始化"></a>Hexo 的安装与初始化</h2><p>本地环境准备好 Node.js 和 Git 之后，就可以直接安装 Hexo CLI。</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm install -g hexo-cli</span><br></pre></td></tr></table></figure>
-
-<p>接着初始化博客目录：</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo init blog</span><br><span class="line"><span class="built_in">cd</span> blog</span><br><span class="line">npm install</span><br></pre></td></tr></table></figure>
-
-<p>随后在 themes 目录下克隆主题仓库：</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/jerryc127/hexo-theme-butterfly.git</span><br></pre></td></tr></table></figure>
-
-<p>然后在站点配置文件 _config.yml 中，把主题改成：</p>
-<figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="attr">theme:</span> <span class="string">butterfly</span></span><br></pre></td></tr></table></figure>
-
-<p>接下来便是完善一些基础配置和页面。</p>
-<hr>
-<h2 id="添加-Live2D-小人"><a href="#添加-Live2D-小人" class="headerlink" title="添加 Live2D 小人"></a>添加 Live2D 小人</h2><p>为了让博客更有趣一些，我在右下角添加了一个 Live2D 小人。Butterfly 主题支持通过代码注入的方式快速集成。</p>
-<h3 id="配置方法"><a href="#配置方法" class="headerlink" title="配置方法"></a>配置方法</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>inject</code> 配置段，在 <code>bottom</code> 部分添加以下代码：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">inject:</span></span><br><span class="line">  <span class="attr">head:</span></span><br><span class="line">    <span class="comment"># ... 其他配置</span></span><br><span class="line">  <span class="attr">bottom:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script src=&quot;https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js&quot;&gt;&lt;/script&gt;&#x27;</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script&gt;L2Dwidget.init(&#123; model: &#123; jsonPath: &quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json&quot; &#125;, display: &#123; position: &quot;right&quot;, width: 150, height: 300, hOffset: 30, vOffset: -10 &#125;, mobile: &#123; show: true, scale: 0.6 &#125;, react: &#123; opacityDefault: 0.8, opacityOnHover: 0.2 &#125; &#125;);&lt;/script&gt;&#x27;</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="参数说明"><a href="#参数说明" class="headerlink" title="参数说明"></a>参数说明</h3><ul>
-<li><strong>model.jsonPath</strong>：角色模型的 CDN 地址，这里使用的是 Shizuku（时雨）模型</li>
-<li><strong>display.position</strong>：显示位置（left&#x2F;right），这里设为右下角</li>
-<li><strong>display.width&#x2F;height</strong>：模型宽高（像素）</li>
-<li><strong>display.hOffset&#x2F;vOffset</strong>：水平和垂直偏移量</li>
-<li><strong>mobile.show</strong>：是否在移动端显示</li>
-<li><strong>mobile.scale</strong>：移动端缩放比例</li>
-<li><strong>react.opacityDefault</strong>：默认透明度</li>
-<li><strong>react.opacityOnHover</strong>：鼠标悬停时的透明度（0.2 表示鼠标移上去会变淡）</li>
-</ul>
-<h3 id="可选模型"><a href="#可选模型" class="headerlink" title="可选模型"></a>可选模型</h3><p>除了 Shizuku，还可以选择其他模型：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Koharu（小春）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-koharu@1.0.5/assets/koharu.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Hibiki（响）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-hibiki@1.0.5/assets/hibiki.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Miku（初音未来）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-miku@1.0.5/assets/miku.model.json&quot;</span></span><br></pre></td></tr></table></figure>
-
-<p>只需要替换 <code>jsonPath</code> 的值即可切换角色。</p>
-]]></content>
-      <categories>
-        <category>博客搭建</category>
-      </categories>
-      <tags>
-        <tag>Hexo</tag>
-        <tag>Butterfly</tag>
-        <tag>博客</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>为 Hexo 博客添加 Giscus 评论系统</title>
     <url>/2026/02/08/add-giscus-comments/</url>
     <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>为博客添加评论功能是增强互动性的重要一步。这篇文章记录我为 Hexo + Butterfly 博客集成 Giscus 评论系统的完整过程。</p>
@@ -208,9 +76,141 @@
         <category>博客搭建</category>
       </categories>
       <tags>
-        <tag>评论系统</tag>
         <tag>Hexo</tag>
         <tag>Giscus</tag>
+        <tag>评论系统</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>使用 Hexo + Butterfly 搭建我的个人博客</title>
+    <url>/2026/02/05/hexo-butterfly-blog-setup/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>很早之前就想搭一个属于自己的博客，但一直停留在“想做”的阶段。  </p>
+<p>这篇文章主要记录我使用 <strong>Hexo + Butterfly</strong> 搭建博客的过程，一方面作为备忘，另一方面也算是这个博客的起点。</p>
+<hr>
+<h2 id="关于技术选型"><a href="#关于技术选型" class="headerlink" title="关于技术选型"></a>关于技术选型</h2><p>一开始我也考虑过很多方案，比如 WordPress，或者干脆用前端框架自己写一套。<br>但综合考虑之后，还是选择了 Hexo。</p>
+<p>原因其实很简单：<br>Hexo 是静态博客，结构清晰，写文章就是写 Markdown，不需要关心数据库和后端服务。对目前的我来说，这种“专注写作本身”的方式更合适。</p>
+<p>在主题方面，我选择了 Butterfly。这个主题整体风格简洁，配置项比较全，文档也比较完善，适合长期维护。</p>
+<hr>
+<h2 id="Hexo-的安装与初始化"><a href="#Hexo-的安装与初始化" class="headerlink" title="Hexo 的安装与初始化"></a>Hexo 的安装与初始化</h2><p>本地环境准备好 Node.js 和 Git 之后，就可以直接安装 Hexo CLI。</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm install -g hexo-cli</span><br></pre></td></tr></table></figure>
+
+<p>接着初始化博客目录：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo init blog</span><br><span class="line"><span class="built_in">cd</span> blog</span><br><span class="line">npm install</span><br></pre></td></tr></table></figure>
+
+<p>随后在 themes 目录下克隆主题仓库：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/jerryc127/hexo-theme-butterfly.git</span><br></pre></td></tr></table></figure>
+
+<p>然后在站点配置文件 _config.yml 中，把主题改成：</p>
+<figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="attr">theme:</span> <span class="string">butterfly</span></span><br></pre></td></tr></table></figure>
+
+<p>接下来便是完善一些基础配置和页面。</p>
+<hr>
+<h2 id="添加-Live2D-小人"><a href="#添加-Live2D-小人" class="headerlink" title="添加 Live2D 小人"></a>添加 Live2D 小人</h2><p>为了让博客更有趣一些，我在右下角添加了一个 Live2D 小人。Butterfly 主题支持通过代码注入的方式快速集成。</p>
+<h3 id="配置方法"><a href="#配置方法" class="headerlink" title="配置方法"></a>配置方法</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>inject</code> 配置段，在 <code>bottom</code> 部分添加以下代码：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">inject:</span></span><br><span class="line">  <span class="attr">head:</span></span><br><span class="line">    <span class="comment"># ... 其他配置</span></span><br><span class="line">  <span class="attr">bottom:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script src=&quot;https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js&quot;&gt;&lt;/script&gt;&#x27;</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script&gt;L2Dwidget.init(&#123; model: &#123; jsonPath: &quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json&quot; &#125;, display: &#123; position: &quot;right&quot;, width: 150, height: 300, hOffset: 30, vOffset: -10 &#125;, mobile: &#123; show: true, scale: 0.6 &#125;, react: &#123; opacityDefault: 0.8, opacityOnHover: 0.2 &#125; &#125;);&lt;/script&gt;&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="参数说明"><a href="#参数说明" class="headerlink" title="参数说明"></a>参数说明</h3><ul>
+<li><strong>model.jsonPath</strong>：角色模型的 CDN 地址，这里使用的是 Shizuku（时雨）模型</li>
+<li><strong>display.position</strong>：显示位置（left&#x2F;right），这里设为右下角</li>
+<li><strong>display.width&#x2F;height</strong>：模型宽高（像素）</li>
+<li><strong>display.hOffset&#x2F;vOffset</strong>：水平和垂直偏移量</li>
+<li><strong>mobile.show</strong>：是否在移动端显示</li>
+<li><strong>mobile.scale</strong>：移动端缩放比例</li>
+<li><strong>react.opacityDefault</strong>：默认透明度</li>
+<li><strong>react.opacityOnHover</strong>：鼠标悬停时的透明度（0.2 表示鼠标移上去会变淡）</li>
+</ul>
+<h3 id="可选模型"><a href="#可选模型" class="headerlink" title="可选模型"></a>可选模型</h3><p>除了 Shizuku，还可以选择其他模型：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Koharu（小春）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-koharu@1.0.5/assets/koharu.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Hibiki（响）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-hibiki@1.0.5/assets/hibiki.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Miku（初音未来）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-miku@1.0.5/assets/miku.model.json&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>只需要替换 <code>jsonPath</code> 的值即可切换角色。</p>
+]]></content>
+      <categories>
+        <category>博客搭建</category>
+      </categories>
+      <tags>
+        <tag>Hexo</tag>
+        <tag>Butterfly</tag>
+        <tag>博客</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>评论系统设计与实现</title>
+    <url>/2026/02/11/comment-system/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>本文记录我在博客项目中实现评论功能时，涉及的一些细节。</p>
+<hr>
+<h2 id="一、后端实现"><a href="#一、后端实现" class="headerlink" title="一、后端实现"></a>一、后端实现</h2><h3 id="1-评论实体设计（Comment）"><a href="#1-评论实体设计（Comment）" class="headerlink" title="1. 评论实体设计（Comment）"></a>1. 评论实体设计（Comment）</h3><p>评论表的核心在于<strong>自引用关系</strong>：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Entity</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Comment</span> &#123;</span><br><span class="line">    <span class="meta">@Id</span></span><br><span class="line">    <span class="keyword">private</span> Long id;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> String content;  <span class="comment">// VARCHAR(1000)</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> Article article;  <span class="comment">// 所属文章</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> User author;  <span class="comment">// 评论作者</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.LAZY)</span></span><br><span class="line">    <span class="keyword">private</span> Comment parentComment;  <span class="comment">// 父评论（自引用关系）</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@CreationTimestamp</span></span><br><span class="line">    <span class="keyword">private</span> LocalDateTime createdAt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="设计要点"><a href="#设计要点" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
+<li><code>parentComment</code> 指向自身，实现评论嵌套</li>
+<li>父评论使用 <code>LAZY</code>，避免循环加载</li>
+<li>作者、文章使用 <code>EAGER</code>，避免访问时频繁触发延迟加载</li>
+<li>不在实体中直接维护 children，避免 ORM 复杂度失控</li>
+</ul>
+<blockquote>
+<p>高并发场景应使用join fetch 或DTO投影来精确控制查询行为。</p>
+</blockquote>
+<hr>
+<h3 id="2-数据访问层（Repository）"><a href="#2-数据访问层（Repository）" class="headerlink" title="2. 数据访问层（Repository）"></a>2. 数据访问层（Repository）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">CommentRepository</span> <span class="keyword">extends</span> <span class="title class_">JpaRepository</span>&lt;Comment, Long&gt; &#123;</span><br><span class="line">    <span class="comment">// 按文章ID查询，升序排列（老评论在前）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByArticleIdOrderByCreatedAtAsc</span><span class="params">(Long articleId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 按作者ID查询（用于个人主页）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByAuthorId</span><span class="params">(Long authorId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 查找子评论（用于级联删除）</span></span><br><span class="line">    List&lt;Comment&gt; <span class="title function_">findByParentCommentId</span><span class="params">(Long parentId)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p> 👉 <strong>递归删除时依赖 <code>findByParentCommentId</code> 查找子节点</strong></p>
+<blockquote>
+<p>评论属于高频读写表，后续应在数据库层添加必要索引。</p>
+</blockquote>
+<hr>
+<h3 id="3-评论创建逻辑（Service）"><a href="#3-评论创建逻辑（Service）" class="headerlink" title="3. 评论创建逻辑（Service）"></a>3. 评论创建逻辑（Service）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> CommentDTO <span class="title function_">createComment</span><span class="params">(Long articleId, Long userId, String content, Long parentId)</span> &#123;</span><br><span class="line">    <span class="comment">// 验证文章和用户存在</span></span><br><span class="line">    <span class="type">Article</span> <span class="variable">article</span> <span class="operator">=</span> articleRepository.findById(articleId)...</span><br><span class="line">    <span class="type">User</span> <span class="variable">author</span> <span class="operator">=</span> userRepository.findById(userId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 验证内容非空</span></span><br><span class="line">    <span class="keyword">if</span> (content == <span class="literal">null</span> || content.trim().isEmpty()) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;评论内容不能为空&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 如果是回复，验证父评论</span></span><br><span class="line">    <span class="keyword">if</span> (parentId != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="type">Comment</span> <span class="variable">parent</span> <span class="operator">=</span> commentRepository.findById(parentId)...</span><br><span class="line">        <span class="comment">// 确保父评论属于同一篇文章</span></span><br><span class="line">        <span class="keyword">if</span> (!parent.getArticle().getId().equals(articleId)) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;父评论与文章不匹配&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        comment.setParentComment(parent);<span class="comment">// 设置parentcomment</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 保存并转换为DTO</span></span><br><span class="line">    comment = commentRepository.save(comment);</span><br><span class="line">    <span class="keyword">return</span> convertToDTO(comment, userId);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="核心约束点"><a href="#核心约束点" class="headerlink" title="核心约束点"></a>核心约束点</h4><ul>
+<li>回复的父评论必须属于同一篇文章</li>
+<li>所有评论统一通过 DTO 返回，避免实体泄露</li>
+<li>创建逻辑不做层级限制，展示逻辑交给前端</li>
+</ul>
+<hr>
+<h3 id="4-递归级联删除"><a href="#4-递归级联删除" class="headerlink" title="4. 递归级联删除"></a>4. 递归级联删除</h3><p>删除一条评论时，必须同时删除：</p>
+<ol>
+<li>所有子评论（递归）</li>
+<li>所有关联的点赞记录</li>
+<li>保证外键约束不报错</li>
+<li>保证操作原子性</li>
+</ol>
+<h4 id="实现方案"><a href="#实现方案" class="headerlink" title="实现方案"></a>实现方案</h4><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">deleteComment</span><span class="params">(Long commentId, Long userId)</span> &#123;</span><br><span class="line">    <span class="type">Comment</span> <span class="variable">comment</span> <span class="operator">=</span> commentRepository.findById(commentId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 权限检查：只能删除自己的评论</span></span><br><span class="line">    <span class="keyword">if</span> (!comment.getAuthor().getId().equals(userId)) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;只能删除自己的评论&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deleteCommentWithChildren(comment);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 递归删除子评论</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">deleteCommentWithChildren</span><span class="params">(Comment comment)</span> &#123;</span><br><span class="line">    <span class="comment">// 递归删除所有子评论</span></span><br><span class="line">    List&lt;Comment&gt; children = commentRepository.findByParentCommentId(comment.getId());</span><br><span class="line">    <span class="keyword">for</span> (Comment child : children) &#123;</span><br><span class="line">        deleteCommentWithChildren(child);  <span class="comment">// 递归调用</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 先删除该评论的所有点赞（解决FK约束）</span></span><br><span class="line">    commentLikeRepository.deleteByCommentId(comment.getId());</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 最后删除评论本身</span></span><br><span class="line">    commentRepository.deleteById(comment.getId());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="设计要点-1"><a href="#设计要点-1" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
+<li>深度优先遍历（DFS）</li>
+<li>时间复杂度 O(n)</li>
+<li>使用事务保证一致性</li>
+<li>显式控制删除顺序，避免外键（FK）约束问题</li>
+</ul>
+<blockquote>
+<p>为避免复杂递归以及保留上下文，可考虑采用逻辑删除<code>private boolean deleted;</code>。</p>
+</blockquote>
+<hr>
+<h2 id="二、前端实现"><a href="#二、前端实现" class="headerlink" title="二、前端实现"></a>二、前端实现</h2><h3 id="1-数据结构设计"><a href="#1-数据结构设计" class="headerlink" title="1. 数据结构设计"></a>1. 数据结构设计</h3><p>前端接收的是<strong>平铺数组</strong>，自行构建树结构：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">data</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="attr">comments</span>: [],        <span class="comment">// 平铺的评论列表（从API获取）</span></span><br><span class="line">        <span class="attr">commentTree</span>: [],     <span class="comment">// 树型结构（用于渲染）</span></span><br><span class="line">        <span class="attr">newCommentContent</span>: <span class="string">&#x27;&#x27;</span>,  <span class="comment">// 新评论内容</span></span><br><span class="line">        <span class="attr">replyingTo</span>: <span class="literal">null</span>,    <span class="comment">// 当前回复的评论对象</span></span><br><span class="line">        <span class="attr">replyContent</span>: <span class="string">&#x27;&#x27;</span>     <span class="comment">// 回复内容</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>选择前端构建树结构而不是后端直接递归组装，是为了保持接口简单、避免后端递归查询带来的复杂度，同时让前端掌控展示策略。</p>
+</blockquote>
+<hr>
+<h3 id="2-评论树构建与展平"><a href="#2-评论树构建与展平" class="headerlink" title="2. 评论树构建与展平"></a>2. 评论树构建与展平</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">buildCommentTree</span>(<span class="params">comments</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> map = <span class="keyword">new</span> <span class="title class_">Map</span>();</span><br><span class="line">    <span class="keyword">const</span> roots = [];</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 1. 创建映射表，每个评论作为一个节点</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        map.<span class="title function_">set</span>(comment.<span class="property">id</span>, &#123; ...comment, <span class="attr">children</span>: [] &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 构建父子关系</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">const</span> node = map.<span class="title function_">get</span>(comment.<span class="property">id</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 顶级评论（没有父评论）</span></span><br><span class="line">        <span class="keyword">if</span> (!comment.<span class="property">parentId</span>) &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 找到最顶层的父评论（展平多层嵌套）</span></span><br><span class="line">        <span class="keyword">let</span> parent = map.<span class="title function_">get</span>(comment.<span class="property">parentId</span>);</span><br><span class="line">        <span class="keyword">while</span> (parent &amp;&amp; parent.<span class="property">parentId</span>) &#123;</span><br><span class="line">            parent = map.<span class="title function_">get</span>(parent.<span class="property">parentId</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 将当前评论添加到顶层父评论的children中</span></span><br><span class="line">        <span class="keyword">if</span> (parent) &#123;</span><br><span class="line">            parent.<span class="property">children</span>.<span class="title function_">push</span>(node);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);  <span class="comment">// 孤儿节点作为顶级评论</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> roots;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="设计要点-2"><a href="#设计要点-2" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
+<li>支持任意层级回复</li>
+<li>UI 只展示两层</li>
+<li>不需要后端额外接口</li>
+<li>构建复杂度 O(n)</li>
+</ul>
+<blockquote>
+<p>前端只展示两层结构，避免前端无限递归渲染</p>
+</blockquote>
+]]></content>
+      <categories>
+        <category>项目总结</category>
+      </categories>
+      <tags>
+        <tag>评论系统</tag>
+        <tag>Spring Boot</tag>
+        <tag>数据库设计</tag>
       </tags>
   </entry>
 </search>
