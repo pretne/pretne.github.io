@@ -1,6 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>使用 Hexo + Butterfly 搭建我的个人博客</title>
+    <url>/2026/02/05/hexo-butterfly-blog-setup/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>很早之前就想搭一个属于自己的博客，但一直停留在“想做”的阶段。  </p>
+<p>这篇文章主要记录我使用 <strong>Hexo + Butterfly</strong> 搭建博客的过程，一方面作为备忘，另一方面也算是这个博客的起点。</p>
+<hr>
+<h2 id="关于技术选型"><a href="#关于技术选型" class="headerlink" title="关于技术选型"></a>关于技术选型</h2><p>一开始我也考虑过很多方案，比如 WordPress，或者干脆用前端框架自己写一套。<br>但综合考虑之后，还是选择了 Hexo。</p>
+<p>原因其实很简单：<br>Hexo 是静态博客，结构清晰，写文章就是写 Markdown，不需要关心数据库和后端服务。对目前的我来说，这种“专注写作本身”的方式更合适。</p>
+<p>在主题方面，我选择了 Butterfly。这个主题整体风格简洁，配置项比较全，文档也比较完善，适合长期维护。</p>
+<hr>
+<h2 id="Hexo-的安装与初始化"><a href="#Hexo-的安装与初始化" class="headerlink" title="Hexo 的安装与初始化"></a>Hexo 的安装与初始化</h2><p>本地环境准备好 Node.js 和 Git 之后，就可以直接安装 Hexo CLI。</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm install -g hexo-cli</span><br></pre></td></tr></table></figure>
+
+<p>接着初始化博客目录：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo init blog</span><br><span class="line"><span class="built_in">cd</span> blog</span><br><span class="line">npm install</span><br></pre></td></tr></table></figure>
+
+<p>随后在 themes 目录下克隆主题仓库：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/jerryc127/hexo-theme-butterfly.git</span><br></pre></td></tr></table></figure>
+
+<p>然后在站点配置文件 _config.yml 中，把主题改成：</p>
+<figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="attr">theme:</span> <span class="string">butterfly</span></span><br></pre></td></tr></table></figure>
+
+<p>接下来便是完善一些基础配置和页面。</p>
+<hr>
+<h2 id="添加-Live2D-小人"><a href="#添加-Live2D-小人" class="headerlink" title="添加 Live2D 小人"></a>添加 Live2D 小人</h2><p>为了让博客更有趣一些，我在右下角添加了一个 Live2D 小人。Butterfly 主题支持通过代码注入的方式快速集成。</p>
+<h3 id="配置方法"><a href="#配置方法" class="headerlink" title="配置方法"></a>配置方法</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>inject</code> 配置段，在 <code>bottom</code> 部分添加以下代码：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">inject:</span></span><br><span class="line">  <span class="attr">head:</span></span><br><span class="line">    <span class="comment"># ... 其他配置</span></span><br><span class="line">  <span class="attr">bottom:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script src=&quot;https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js&quot;&gt;&lt;/script&gt;&#x27;</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script&gt;L2Dwidget.init(&#123; model: &#123; jsonPath: &quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json&quot; &#125;, display: &#123; position: &quot;right&quot;, width: 150, height: 300, hOffset: 30, vOffset: -10 &#125;, mobile: &#123; show: true, scale: 0.6 &#125;, react: &#123; opacityDefault: 0.8, opacityOnHover: 0.2 &#125; &#125;);&lt;/script&gt;&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="参数说明"><a href="#参数说明" class="headerlink" title="参数说明"></a>参数说明</h3><ul>
+<li><strong>model.jsonPath</strong>：角色模型的 CDN 地址，这里使用的是 Shizuku（时雨）模型</li>
+<li><strong>display.position</strong>：显示位置（left&#x2F;right），这里设为右下角</li>
+<li><strong>display.width&#x2F;height</strong>：模型宽高（像素）</li>
+<li><strong>display.hOffset&#x2F;vOffset</strong>：水平和垂直偏移量</li>
+<li><strong>mobile.show</strong>：是否在移动端显示</li>
+<li><strong>mobile.scale</strong>：移动端缩放比例</li>
+<li><strong>react.opacityDefault</strong>：默认透明度</li>
+<li><strong>react.opacityOnHover</strong>：鼠标悬停时的透明度（0.2 表示鼠标移上去会变淡）</li>
+</ul>
+<h3 id="可选模型"><a href="#可选模型" class="headerlink" title="可选模型"></a>可选模型</h3><p>除了 Shizuku，还可以选择其他模型：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Koharu（小春）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-koharu@1.0.5/assets/koharu.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Hibiki（响）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-hibiki@1.0.5/assets/hibiki.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Miku（初音未来）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-miku@1.0.5/assets/miku.model.json&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>只需要替换 <code>jsonPath</code> 的值即可切换角色。</p>
+]]></content>
+      <categories>
+        <category>博客搭建</category>
+      </categories>
+      <tags>
+        <tag>Hexo</tag>
+        <tag>Butterfly</tag>
+        <tag>博客</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>评论系统设计与实现</title>
     <url>/2026/02/11/comment-system/</url>
     <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>本文记录我在博客项目中实现评论功能时，涉及的一些细节。</p>
@@ -156,9 +208,224 @@
         <category>博客搭建</category>
       </categories>
       <tags>
-        <tag>评论系统</tag>
         <tag>Hexo</tag>
+        <tag>评论系统</tag>
         <tag>Giscus</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>设计模式面试复习笔记</title>
+    <url>/2026/03/16/design-pattern-interview-notes/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>在准备后端面试时，设计模式几乎是绕不开的话题。<br>很多框架（例如 Spring）内部大量使用了设计模式，因此理解这些模式不仅有助于写业务代码，也能更好地理解框架源码。</p>
+<p>设计模式本质上是：</p>
+<blockquote>
+<p>针对常见软件设计问题的通用解决方案。</p>
+</blockquote>
+<p>经典设计模式共有 23 种，通常分为三大类：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>创建型模式</td>
+<td>解决对象创建问题</td>
+</tr>
+<tr>
+<td>结构型模式</td>
+<td>解决类或对象组合问题</td>
+</tr>
+<tr>
+<td>行为型模式</td>
+<td>解决对象之间交互问题</td>
+</tr>
+</tbody></table>
+<p>面试中最常问的其实只有几种，下面整理几个高频模式。</p>
+<h2 id="一、单例模式（Singleton）"><a href="#一、单例模式（Singleton）" class="headerlink" title="一、单例模式（Singleton）"></a>一、单例模式（Singleton）</h2><h3 id="1-解决的问题"><a href="#1-解决的问题" class="headerlink" title="1. 解决的问题"></a>1. 解决的问题</h3><p>确保某个类在系统中只有一个实例，并提供全局访问方式。</p>
+<p>典型场景：</p>
+<ul>
+<li>配置管理</li>
+<li>日志对象</li>
+<li>数据库连接池</li>
+<li>Spring Bean 默认单例</li>
+</ul>
+<h3 id="2-基本实现（线程不安全）"><a href="#2-基本实现（线程不安全）" class="headerlink" title="2. 基本实现（线程不安全）"></a>2. 基本实现（线程不安全）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Singleton</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="title function_">Singleton</span><span class="params">()</span> &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title function_">getInstance</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (instance == <span class="literal">null</span>) &#123;</span><br><span class="line">            instance = <span class="keyword">new</span> <span class="title class_">Singleton</span>();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个版本在多线程环境下不安全。</p>
+<h3 id="3-面试常问：线程安全实现（DCL）"><a href="#3-面试常问：线程安全实现（DCL）" class="headerlink" title="3. 面试常问：线程安全实现（DCL）"></a>3. 面试常问：线程安全实现（DCL）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Singleton</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">volatile</span> Singleton instance;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="title function_">Singleton</span><span class="params">()</span> &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title function_">getInstance</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (instance == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="keyword">if</span> (instance == <span class="literal">null</span>) &#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> <span class="title class_">Singleton</span>();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>关键点：</p>
+<ul>
+<li><code>volatile</code> 防止指令重排</li>
+<li>双重检查减少锁开销</li>
+</ul>
+<h3 id="4-更简单写法（推荐）"><a href="#4-更简单写法（推荐）" class="headerlink" title="4. 更简单写法（推荐）"></a>4. 更简单写法（推荐）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Singleton</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Singleton</span> <span class="variable">INSTANCE</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Singleton</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="title function_">Singleton</span><span class="params">()</span> &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title function_">getInstance</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> INSTANCE;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>利用类加载机制保证线程安全，写法也更简洁。</p>
+<h2 id="二、工厂模式（Factory）"><a href="#二、工厂模式（Factory）" class="headerlink" title="二、工厂模式（Factory）"></a>二、工厂模式（Factory）</h2><h3 id="1-解决的问题-1"><a href="#1-解决的问题-1" class="headerlink" title="1. 解决的问题"></a>1. 解决的问题</h3><p>当对象创建逻辑复杂时，将对象创建过程封装起来。</p>
+<p>核心思想：</p>
+<blockquote>
+<p>让对象的创建和使用分离。</p>
+</blockquote>
+<h3 id="2-简单工厂示例"><a href="#2-简单工厂示例" class="headerlink" title="2. 简单工厂示例"></a>2. 简单工厂示例</h3><p>假设系统支持多种消息发送方式：邮件、短信、推送。</p>
+<p>统一接口：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">MessageSender</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">send</span><span class="params">(String message)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>实现类：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">EmailSender</span> <span class="keyword">implements</span> <span class="title class_">MessageSender</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">send</span><span class="params">(String message)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;发送邮件：&quot;</span> + message);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SmsSender</span> <span class="keyword">implements</span> <span class="title class_">MessageSender</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">send</span><span class="params">(String message)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;发送短信：&quot;</span> + message);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>工厂类：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MessageFactory</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> MessageSender <span class="title function_">create</span><span class="params">(String type)</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="string">&quot;email&quot;</span>.equals(type)) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">EmailSender</span>();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (<span class="string">&quot;sms&quot;</span>.equals(type)) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">SmsSender</span>();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(<span class="string">&quot;unsupported type: &quot;</span> + type);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用方式：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">MessageSender</span> <span class="variable">sender</span> <span class="operator">=</span> MessageFactory.create(<span class="string">&quot;email&quot;</span>);</span><br><span class="line">sender.send(<span class="string">&quot;hello&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-面试常问"><a href="#3-面试常问" class="headerlink" title="3. 面试常问"></a>3. 面试常问</h3><p>简单工厂 vs 工厂方法：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>简单工厂</td>
+<td>一个工厂类创建所有对象</td>
+</tr>
+<tr>
+<td>工厂方法</td>
+<td>每种产品对应一个工厂</td>
+</tr>
+</tbody></table>
+<p>工厂方法接口示例：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Factory</span> &#123;</span><br><span class="line">    MessageSender <span class="title function_">create</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="三、策略模式（Strategy）"><a href="#三、策略模式（Strategy）" class="headerlink" title="三、策略模式（Strategy）"></a>三、策略模式（Strategy）</h2><h3 id="1-解决的问题-2"><a href="#1-解决的问题-2" class="headerlink" title="1. 解决的问题"></a>1. 解决的问题</h3><p>当一个功能有多种实现方式时，可以在运行时动态选择算法。</p>
+<p>核心思想：</p>
+<blockquote>
+<p>将不同算法封装为独立策略。</p>
+</blockquote>
+<h3 id="2-示例：支付系统"><a href="#2-示例：支付系统" class="headerlink" title="2. 示例：支付系统"></a>2. 示例：支付系统</h3><p>支付策略接口：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">PayStrategy</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">pay</span><span class="params">(<span class="type">int</span> amount)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>支付宝策略：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AlipayStrategy</span> <span class="keyword">implements</span> <span class="title class_">PayStrategy</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">pay</span><span class="params">(<span class="type">int</span> amount)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;支付宝支付：&quot;</span> + amount);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>微信策略：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">WechatPayStrategy</span> <span class="keyword">implements</span> <span class="title class_">PayStrategy</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">pay</span><span class="params">(<span class="type">int</span> amount)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;微信支付：&quot;</span> + amount);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用方式：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">PayStrategy</span> <span class="variable">strategy</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AlipayStrategy</span>();</span><br><span class="line">strategy.pay(<span class="number">100</span>);</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-面试延伸"><a href="#3-面试延伸" class="headerlink" title="3. 面试延伸"></a>3. 面试延伸</h3><p>Spring 中大量使用策略模式，例如：</p>
+<ul>
+<li><code>HandlerMapping</code></li>
+<li><code>HandlerAdapter</code></li>
+<li><code>ViewResolver</code></li>
+</ul>
+<p>通过接口定义统一行为，不同实现类提供不同策略。</p>
+<h2 id="四、观察者模式（Observer）"><a href="#四、观察者模式（Observer）" class="headerlink" title="四、观察者模式（Observer）"></a>四、观察者模式（Observer）</h2><h3 id="1-解决的问题-3"><a href="#1-解决的问题-3" class="headerlink" title="1. 解决的问题"></a>1. 解决的问题</h3><p>当一个对象状态变化时，自动通知其他对象。</p>
+<p>核心思想：</p>
+<blockquote>
+<p>发布-订阅机制。</p>
+</blockquote>
+<h3 id="2-示例"><a href="#2-示例" class="headerlink" title="2. 示例"></a>2. 示例</h3><p>观察者接口：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Observer</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">update</span><span class="params">(String message)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>具体观察者：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserObserver</span> <span class="keyword">implements</span> <span class="title class_">Observer</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String name;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">UserObserver</span><span class="params">(String name)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.name = name;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">update</span><span class="params">(String message)</span> &#123;</span><br><span class="line">        System.out.println(name + <span class="string">&quot; 收到通知：&quot;</span> + message);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>被观察对象：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">import</span> java.util.ArrayList;</span><br><span class="line"><span class="keyword">import</span> java.util.List;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">NotificationService</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> List&lt;Observer&gt; observers = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">addObserver</span><span class="params">(Observer observer)</span> &#123;</span><br><span class="line">        observers.add(observer);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">notifyObservers</span><span class="params">(String message)</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (Observer observer : observers) &#123;</span><br><span class="line">            observer.update(message);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-实际应用"><a href="#3-实际应用" class="headerlink" title="3. 实际应用"></a>3. 实际应用</h3><p>典型场景：</p>
+<ul>
+<li>Spring 事件机制</li>
+<li>消息订阅</li>
+<li>GUI 事件监听</li>
+<li>MQ 消费者模型</li>
+</ul>
+<h2 id="五、代理模式（Proxy）"><a href="#五、代理模式（Proxy）" class="headerlink" title="五、代理模式（Proxy）"></a>五、代理模式（Proxy）</h2><h3 id="1-解决的问题-4"><a href="#1-解决的问题-4" class="headerlink" title="1. 解决的问题"></a>1. 解决的问题</h3><p>为对象提供一个代理对象，控制对原对象的访问。</p>
+<p>常见用途：</p>
+<ul>
+<li>权限控制</li>
+<li>日志记录</li>
+<li>延迟加载</li>
+<li>AOP</li>
+</ul>
+<h3 id="2-示例-1"><a href="#2-示例-1" class="headerlink" title="2. 示例"></a>2. 示例</h3><p>接口：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Service</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">execute</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>真实对象：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RealService</span> <span class="keyword">implements</span> <span class="title class_">Service</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">execute</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;执行真实业务&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>代理对象：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ServiceProxy</span> <span class="keyword">implements</span> <span class="title class_">Service</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Service realService;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">ServiceProxy</span><span class="params">(Service realService)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.realService = realService;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">execute</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;权限检查&quot;</span>);</span><br><span class="line">        realService.execute();</span><br><span class="line">        System.out.println(<span class="string">&quot;记录日志&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-面试重点"><a href="#3-面试重点" class="headerlink" title="3. 面试重点"></a>3. 面试重点</h3><p>Spring AOP 本质就是代理模式：</p>
+<ul>
+<li>JDK 动态代理</li>
+<li>CGLIB 动态代理</li>
+</ul>
+<h2 id="六、面试中常见问题"><a href="#六、面试中常见问题" class="headerlink" title="六、面试中常见问题"></a>六、面试中常见问题</h2><h3 id="1-Spring-用到了哪些设计模式？"><a href="#1-Spring-用到了哪些设计模式？" class="headerlink" title="1. Spring 用到了哪些设计模式？"></a>1. Spring 用到了哪些设计模式？</h3><p>常见答案：</p>
+<ul>
+<li>单例模式（Bean 默认单例）</li>
+<li>工厂模式（<code>BeanFactory</code>）</li>
+<li>策略模式（<code>HandlerMapping</code>）</li>
+<li>代理模式（AOP）</li>
+<li>模板方法模式（<code>JdbcTemplate</code>）</li>
+<li>观察者模式（Spring Event）</li>
+</ul>
+<h3 id="2-单例模式为什么需要-volatile？"><a href="#2-单例模式为什么需要-volatile？" class="headerlink" title="2. 单例模式为什么需要 volatile？"></a>2. 单例模式为什么需要 <code>volatile</code>？</h3><p>因为 JVM 可能发生指令重排。</p>
+<p>对象创建步骤本应是：</p>
+<ol>
+<li>分配内存</li>
+<li>初始化对象</li>
+<li>指向对象</li>
+</ol>
+<p>但可能重排为：</p>
+<ol>
+<li>分配内存</li>
+<li>指向对象</li>
+<li>初始化对象</li>
+</ol>
+<p>这样会导致其他线程拿到“未初始化完成”的对象。</p>
+<p><code>volatile</code> 可以禁止这类重排。</p>
+<h3 id="3-策略模式和工厂模式区别"><a href="#3-策略模式和工厂模式区别" class="headerlink" title="3. 策略模式和工厂模式区别"></a>3. 策略模式和工厂模式区别</h3><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>关注点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>工厂模式</td>
+<td>对象创建</td>
+</tr>
+<tr>
+<td>策略模式</td>
+<td>算法选择</td>
+</tr>
+</tbody></table>
+<p>很多时候这两个模式会结合使用：先由工厂创建策略对象，再在运行时切换策略。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>面试中复习设计模式，不需要死记 23 种模式的所有细节。<br>更重要的是把握这三点：</p>
+<ul>
+<li>这个模式解决了什么问题</li>
+<li>在项目中哪里能用</li>
+<li>在 Spring 或常见框架中有什么对应落地</li>
+</ul>
+<p>如果你能结合业务场景讲清楚“为什么用、怎么用、有哪些权衡”，通常会比只背定义更有说服力。</p>
+]]></content>
+      <categories>
+        <category>项目总结</category>
+      </categories>
+      <tags>
+        <tag>Java</tag>
+        <tag>设计模式</tag>
+        <tag>Spring</tag>
+        <tag>面试复习</tag>
       </tags>
   </entry>
   <entry>
@@ -326,55 +593,135 @@
       </tags>
   </entry>
   <entry>
-    <title>使用 Hexo + Butterfly 搭建我的个人博客</title>
-    <url>/2026/02/05/hexo-butterfly-blog-setup/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>很早之前就想搭一个属于自己的博客，但一直停留在“想做”的阶段。  </p>
-<p>这篇文章主要记录我使用 <strong>Hexo + Butterfly</strong> 搭建博客的过程，一方面作为备忘，另一方面也算是这个博客的起点。</p>
-<hr>
-<h2 id="关于技术选型"><a href="#关于技术选型" class="headerlink" title="关于技术选型"></a>关于技术选型</h2><p>一开始我也考虑过很多方案，比如 WordPress，或者干脆用前端框架自己写一套。<br>但综合考虑之后，还是选择了 Hexo。</p>
-<p>原因其实很简单：<br>Hexo 是静态博客，结构清晰，写文章就是写 Markdown，不需要关心数据库和后端服务。对目前的我来说，这种“专注写作本身”的方式更合适。</p>
-<p>在主题方面，我选择了 Butterfly。这个主题整体风格简洁，配置项比较全，文档也比较完善，适合长期维护。</p>
-<hr>
-<h2 id="Hexo-的安装与初始化"><a href="#Hexo-的安装与初始化" class="headerlink" title="Hexo 的安装与初始化"></a>Hexo 的安装与初始化</h2><p>本地环境准备好 Node.js 和 Git 之后，就可以直接安装 Hexo CLI。</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">npm install -g hexo-cli</span><br></pre></td></tr></table></figure>
-
-<p>接着初始化博客目录：</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo init blog</span><br><span class="line"><span class="built_in">cd</span> blog</span><br><span class="line">npm install</span><br></pre></td></tr></table></figure>
-
-<p>随后在 themes 目录下克隆主题仓库：</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/jerryc127/hexo-theme-butterfly.git</span><br></pre></td></tr></table></figure>
-
-<p>然后在站点配置文件 _config.yml 中，把主题改成：</p>
-<figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="attr">theme:</span> <span class="string">butterfly</span></span><br></pre></td></tr></table></figure>
-
-<p>接下来便是完善一些基础配置和页面。</p>
-<hr>
-<h2 id="添加-Live2D-小人"><a href="#添加-Live2D-小人" class="headerlink" title="添加 Live2D 小人"></a>添加 Live2D 小人</h2><p>为了让博客更有趣一些，我在右下角添加了一个 Live2D 小人。Butterfly 主题支持通过代码注入的方式快速集成。</p>
-<h3 id="配置方法"><a href="#配置方法" class="headerlink" title="配置方法"></a>配置方法</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>inject</code> 配置段，在 <code>bottom</code> 部分添加以下代码：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">inject:</span></span><br><span class="line">  <span class="attr">head:</span></span><br><span class="line">    <span class="comment"># ... 其他配置</span></span><br><span class="line">  <span class="attr">bottom:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script src=&quot;https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js&quot;&gt;&lt;/script&gt;&#x27;</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;&lt;script&gt;L2Dwidget.init(&#123; model: &#123; jsonPath: &quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json&quot; &#125;, display: &#123; position: &quot;right&quot;, width: 150, height: 300, hOffset: 30, vOffset: -10 &#125;, mobile: &#123; show: true, scale: 0.6 &#125;, react: &#123; opacityDefault: 0.8, opacityOnHover: 0.2 &#125; &#125;);&lt;/script&gt;&#x27;</span></span><br></pre></td></tr></table></figure>
-
-<h3 id="参数说明"><a href="#参数说明" class="headerlink" title="参数说明"></a>参数说明</h3><ul>
-<li><strong>model.jsonPath</strong>：角色模型的 CDN 地址，这里使用的是 Shizuku（时雨）模型</li>
-<li><strong>display.position</strong>：显示位置（left&#x2F;right），这里设为右下角</li>
-<li><strong>display.width&#x2F;height</strong>：模型宽高（像素）</li>
-<li><strong>display.hOffset&#x2F;vOffset</strong>：水平和垂直偏移量</li>
-<li><strong>mobile.show</strong>：是否在移动端显示</li>
-<li><strong>mobile.scale</strong>：移动端缩放比例</li>
-<li><strong>react.opacityDefault</strong>：默认透明度</li>
-<li><strong>react.opacityOnHover</strong>：鼠标悬停时的透明度（0.2 表示鼠标移上去会变淡）</li>
+    <title>一次理解访问者模式</title>
+    <url>/2026/03/15/visitor-pattern-when-operations-change/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>在学习设计模式时，访问者模式经常被认为是比较难理解的一种模式。</p>
+<p>原因也很简单：它不像单例、工厂那样直观，而且在日常项目里也不是最高频出现的模式。</p>
+<p>不过如果你接触过编译器、AST、复杂数据结构遍历，你很可能已经见过它的影子。</p>
+<p>简单来说，访问者模式解决的问题是：</p>
+<blockquote>
+<p>当对象结构稳定，但对对象的操作经常变化时，如何避免频繁修改类结构。</p>
+</blockquote>
+<h2 id="一、先看一个直观例子"><a href="#一、先看一个直观例子" class="headerlink" title="一、先看一个直观例子"></a>一、先看一个直观例子</h2><p>假设我们有一个系统，表示不同类型的文件：</p>
+<ul>
+<li>Word 文档</li>
+<li>PDF 文件</li>
+<li>Excel 表格</li>
 </ul>
-<h3 id="可选模型"><a href="#可选模型" class="headerlink" title="可选模型"></a>可选模型</h3><p>除了 Shizuku，还可以选择其他模型：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// Koharu（小春）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-koharu@1.0.5/assets/koharu.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Hibiki（响）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-hibiki@1.0.5/assets/hibiki.model.json&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Miku（初音未来）</span></span><br><span class="line"><span class="string">&quot;https://cdn.jsdelivr.net/npm/live2d-widget-model-miku@1.0.5/assets/miku.model.json&quot;</span></span><br></pre></td></tr></table></figure>
+<p>先定义统一接口：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">interface</span> <span class="title class_">File</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">accept</span><span class="params">(Visitor visitor)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<p>只需要替换 <code>jsonPath</code> 的值即可切换角色。</p>
+<p>不同文件类型只负责“接待”访问者：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">WordFile</span> <span class="keyword">implements</span> <span class="title class_">File</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">accept</span><span class="params">(Visitor visitor)</span> &#123;</span><br><span class="line">        visitor.visit(<span class="built_in">this</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">PdfFile</span> <span class="keyword">implements</span> <span class="title class_">File</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">accept</span><span class="params">(Visitor visitor)</span> &#123;</span><br><span class="line">        visitor.visit(<span class="built_in">this</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">ExcelFile</span> <span class="keyword">implements</span> <span class="title class_">File</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">accept</span><span class="params">(Visitor visitor)</span> &#123;</span><br><span class="line">        visitor.visit(<span class="built_in">this</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这些类本质上是对象结构（数据&#x2F;类型）的表达。</p>
+<h2 id="二、不用访问者会发生什么"><a href="#二、不用访问者会发生什么" class="headerlink" title="二、不用访问者会发生什么"></a>二、不用访问者会发生什么</h2><p>假设系统现在要支持这些操作：</p>
+<ul>
+<li>打开文件</li>
+<li>导出文件</li>
+<li>统计文件信息</li>
+</ul>
+<p>最直接的写法通常是把行为塞进每个类：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">WordFile</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">open</span><span class="params">()</span> &#123;&#125;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">export</span><span class="params">()</span> &#123;&#125;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">statistics</span><span class="params">()</span> &#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>问题很快出现：如果以后要新增一个功能，比如“打印文件”，就必须改动：</p>
+<ul>
+<li><code>WordFile</code></li>
+<li><code>PdfFile</code></li>
+<li><code>ExcelFile</code></li>
+</ul>
+<p>每个类都得加 <code>print()</code> 方法。</p>
+<p>这显然违背了开闭原则：</p>
+<blockquote>
+<p>对扩展开放，对修改关闭。</p>
+</blockquote>
+<h2 id="三、引入访问者模式"><a href="#三、引入访问者模式" class="headerlink" title="三、引入访问者模式"></a>三、引入访问者模式</h2><p>访问者模式的核心思想是：</p>
+<blockquote>
+<p>把“操作”从对象结构中抽离出来。</p>
+</blockquote>
+<p>对象只负责提供结构，操作交给访问者。</p>
+<p>先定义访问者接口：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">interface</span> <span class="title class_">Visitor</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(WordFile file)</span>;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(PdfFile file)</span>;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(ExcelFile file)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>实现一个“打开文件”访问者：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">OpenVisitor</span> <span class="keyword">implements</span> <span class="title class_">Visitor</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(WordFile file)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;打开 Word 文件&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(PdfFile file)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;打开 PDF 文件&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(ExcelFile file)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;打开 Excel 文件&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再实现一个“导出文件”访问者：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">ExportVisitor</span> <span class="keyword">implements</span> <span class="title class_">Visitor</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(WordFile file)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;导出 Word 文件&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(PdfFile file)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;导出 PDF 文件&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(ExcelFile file)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;导出 Excel 文件&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="四、怎么使用"><a href="#四、怎么使用" class="headerlink" title="四、怎么使用"></a>四、怎么使用</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="type">File</span> <span class="variable">file</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">WordFile</span>();</span><br><span class="line"><span class="type">Visitor</span> <span class="variable">visitor</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OpenVisitor</span>();</span><br><span class="line"></span><br><span class="line">file.accept(visitor);</span><br></pre></td></tr></table></figure>
+
+<p>执行流程是：</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">file.accept(visitor)</span><br><span class="line">      ↓</span><br><span class="line">visitor.visit(file)</span><br></pre></td></tr></table></figure>
+
+<p>这个过程本质上就是双重分派（double dispatch）。</p>
+<h2 id="五、为什么这样设计"><a href="#五、为什么这样设计" class="headerlink" title="五、为什么这样设计"></a>五、为什么这样设计</h2><p>访问者模式最大的优势是：</p>
+<blockquote>
+<p>新增操作非常容易。</p>
+</blockquote>
+<p>比如现在想增加“统计文件大小”，只需要新增一个访问者：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">SizeVisitor</span> <span class="keyword">implements</span> <span class="title class_">Visitor</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(WordFile file)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;统计 Word 文件大小&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(PdfFile file)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;统计 PDF 文件大小&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">visit</span><span class="params">(ExcelFile file)</span> &#123;</span><br><span class="line">        System.out.println(<span class="string">&quot;统计 Excel 文件大小&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>原来的文件类完全不用动。</p>
+<h2 id="六、典型适用场景"><a href="#六、典型适用场景" class="headerlink" title="六、典型适用场景"></a>六、典型适用场景</h2><p>访问者模式不是每个项目都会用，但在下面场景非常合适：</p>
+<h3 id="1-编译器-AST"><a href="#1-编译器-AST" class="headerlink" title="1. 编译器 AST"></a>1. 编译器 AST</h3><p>抽象语法树节点（如 <code>Expression</code>、<code>Statement</code>、<code>IfStatement</code>）结构相对稳定，<br>但操作很多：</p>
+<ul>
+<li>代码生成</li>
+<li>语义分析</li>
+<li>优化</li>
+</ul>
+<h3 id="2-复杂对象结构遍历"><a href="#2-复杂对象结构遍历" class="headerlink" title="2. 复杂对象结构遍历"></a>2. 复杂对象结构遍历</h3><p>例如：</p>
+<ul>
+<li>文件系统</li>
+<li>UI 组件树</li>
+<li>文档结构</li>
+</ul>
+<p>针对同一结构，可以有不同访问者：</p>
+<ul>
+<li>渲染</li>
+<li>统计</li>
+<li>导出</li>
+</ul>
+<h3 id="3-报表-数据分析"><a href="#3-报表-数据分析" class="headerlink" title="3. 报表 &#x2F; 数据分析"></a>3. 报表 &#x2F; 数据分析</h3><p>同一组数据不断增加新输出方式：</p>
+<ul>
+<li>生成 PDF</li>
+<li>生成 Excel</li>
+<li>生成图表</li>
+</ul>
+<h2 id="七、缺点"><a href="#七、缺点" class="headerlink" title="七、缺点"></a>七、缺点</h2><p>访问者模式最大缺点是：</p>
+<blockquote>
+<p>一旦对象结构变化，改动成本很高。</p>
+</blockquote>
+<p>例如新增一个文件类型 <code>ImageFile</code>，那所有访问者都要补对应方法：</p>
+<ul>
+<li><code>OpenVisitor</code></li>
+<li><code>ExportVisitor</code></li>
+<li><code>SizeVisitor</code></li>
+<li>以及其他所有 <code>Visitor</code> 实现</li>
+</ul>
+<p>所以它更适合：</p>
+<blockquote>
+<p>对象结构稳定，但操作经常变化的系统。</p>
+</blockquote>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>访问者模式可以用一句话概括：</p>
+<blockquote>
+<p>对象负责结构，访问者负责行为。</p>
+</blockquote>
+<p>它的核心价值是把操作和数据结构分离。</p>
+<p>当系统满足以下条件时，访问者模式通常很合适：</p>
+<ul>
+<li>数据结构稳定</li>
+<li>操作经常增加</li>
+<li>需要对同一组对象执行多种不同操作</li>
+</ul>
 ]]></content>
       <categories>
-        <category>博客搭建</category>
+        <category>项目总结</category>
       </categories>
       <tags>
-        <tag>Hexo</tag>
-        <tag>Butterfly</tag>
-        <tag>博客</tag>
+        <tag>Java</tag>
+        <tag>设计模式</tag>
+        <tag>系统设计</tag>
       </tags>
   </entry>
 </search>
