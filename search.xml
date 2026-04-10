@@ -53,164 +53,167 @@
       </tags>
   </entry>
   <entry>
-    <title>评论系统设计与实现</title>
-    <url>/2026/02/11/comment-system/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>本文记录我在博客项目中实现评论功能时，涉及的一些细节。</p>
-<hr>
-<h2 id="一、后端实现"><a href="#一、后端实现" class="headerlink" title="一、后端实现"></a>一、后端实现</h2><h3 id="1-评论实体设计（Comment）"><a href="#1-评论实体设计（Comment）" class="headerlink" title="1. 评论实体设计（Comment）"></a>1. 评论实体设计（Comment）</h3><p>评论表的核心在于<strong>自引用关系</strong>：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Entity</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Comment</span> &#123;</span><br><span class="line">    <span class="meta">@Id</span></span><br><span class="line">    <span class="keyword">private</span> Long id;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> String content;  <span class="comment">// VARCHAR(1000)</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> Article article;  <span class="comment">// 所属文章</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> User author;  <span class="comment">// 评论作者</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.LAZY)</span></span><br><span class="line">    <span class="keyword">private</span> Comment parentComment;  <span class="comment">// 父评论（自引用关系）</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@CreationTimestamp</span></span><br><span class="line">    <span class="keyword">private</span> LocalDateTime createdAt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="设计要点"><a href="#设计要点" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
-<li><code>parentComment</code> 指向自身，实现评论嵌套</li>
-<li>父评论使用 <code>LAZY</code>，避免循环加载</li>
-<li>作者、文章使用 <code>EAGER</code>，避免访问时频繁触发延迟加载</li>
-<li>不在实体中直接维护 children，避免 ORM 复杂度失控</li>
+    <title>消息通知系统</title>
+    <url>/2026/03/07/notification-system/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>最近在给自己的博客系统补一些互动功能，比如点赞、收藏、关注之类的。<br>做着做着就发现一个问题：用户其实不知道别人对他做了什么。</p>
+<p>比如：</p>
+<ul>
+<li>有人点赞了你的文章</li>
+<li>有人收藏了你的文章</li>
+<li>有人关注了你</li>
+<li>或者有人给你发了私信</li>
 </ul>
-<blockquote>
-<p>高并发场景应使用join fetch 或DTO投影来精确控制查询行为。</p>
-</blockquote>
-<hr>
-<h3 id="2-数据访问层（Repository）"><a href="#2-数据访问层（Repository）" class="headerlink" title="2. 数据访问层（Repository）"></a>2. 数据访问层（Repository）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">CommentRepository</span> <span class="keyword">extends</span> <span class="title class_">JpaRepository</span>&lt;Comment, Long&gt; &#123;</span><br><span class="line">    <span class="comment">// 按文章ID查询，升序排列（老评论在前）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByArticleIdOrderByCreatedAtAsc</span><span class="params">(Long articleId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 按作者ID查询（用于个人主页）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByAuthorId</span><span class="params">(Long authorId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 查找子评论（用于级联删除）</span></span><br><span class="line">    List&lt;Comment&gt; <span class="title function_">findByParentCommentId</span><span class="params">(Long parentId)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p> 👉 <strong>递归删除时依赖 <code>findByParentCommentId</code> 查找子节点</strong></p>
-<blockquote>
-<p>评论属于高频读写表，后续应在数据库层添加必要索引。</p>
-</blockquote>
-<hr>
-<h3 id="3-评论创建逻辑（Service）"><a href="#3-评论创建逻辑（Service）" class="headerlink" title="3. 评论创建逻辑（Service）"></a>3. 评论创建逻辑（Service）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> CommentDTO <span class="title function_">createComment</span><span class="params">(Long articleId, Long userId, String content, Long parentId)</span> &#123;</span><br><span class="line">    <span class="comment">// 验证文章和用户存在</span></span><br><span class="line">    <span class="type">Article</span> <span class="variable">article</span> <span class="operator">=</span> articleRepository.findById(articleId)...</span><br><span class="line">    <span class="type">User</span> <span class="variable">author</span> <span class="operator">=</span> userRepository.findById(userId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 验证内容非空</span></span><br><span class="line">    <span class="keyword">if</span> (content == <span class="literal">null</span> || content.trim().isEmpty()) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;评论内容不能为空&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 如果是回复，验证父评论</span></span><br><span class="line">    <span class="keyword">if</span> (parentId != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="type">Comment</span> <span class="variable">parent</span> <span class="operator">=</span> commentRepository.findById(parentId)...</span><br><span class="line">        <span class="comment">// 确保父评论属于同一篇文章</span></span><br><span class="line">        <span class="keyword">if</span> (!parent.getArticle().getId().equals(articleId)) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;父评论与文章不匹配&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        comment.setParentComment(parent);<span class="comment">// 设置parentcomment</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 保存并转换为DTO</span></span><br><span class="line">    comment = commentRepository.save(comment);</span><br><span class="line">    <span class="keyword">return</span> convertToDTO(comment, userId);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="核心约束点"><a href="#核心约束点" class="headerlink" title="核心约束点"></a>核心约束点</h4><ul>
-<li>回复的父评论必须属于同一篇文章</li>
-<li>所有评论统一通过 DTO 返回，避免实体泄露</li>
-<li>创建逻辑不做层级限制，展示逻辑交给前端</li>
+<p>如果没有通知系统，这些行为基本就是“悄悄发生”，用户完全感知不到。</p>
+<p>所以就顺手把消息通知模块也做了一遍。这篇文章主要记录一下整个实现过程，以及中间踩的一些坑。</p>
+<h2 id="一、先想清楚通知是什么"><a href="#一、先想清楚通知是什么" class="headerlink" title="一、先想清楚通知是什么"></a>一、先想清楚通知是什么</h2><p>一开始我其实想过几种设计，比如：</p>
+<ul>
+<li>点赞通知一张表</li>
+<li>评论通知一张表</li>
+<li>关注通知一张表</li>
 </ul>
-<hr>
-<h3 id="4-递归级联删除"><a href="#4-递归级联删除" class="headerlink" title="4. 递归级联删除"></a>4. 递归级联删除</h3><p>删除一条评论时，必须同时删除：</p>
-<ol>
-<li>所有子评论（递归）</li>
-<li>所有关联的点赞记录</li>
-<li>保证外键约束不报错</li>
-<li>保证操作原子性</li>
-</ol>
-<h4 id="实现方案"><a href="#实现方案" class="headerlink" title="实现方案"></a>实现方案</h4><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">deleteComment</span><span class="params">(Long commentId, Long userId)</span> &#123;</span><br><span class="line">    <span class="type">Comment</span> <span class="variable">comment</span> <span class="operator">=</span> commentRepository.findById(commentId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 权限检查：只能删除自己的评论</span></span><br><span class="line">    <span class="keyword">if</span> (!comment.getAuthor().getId().equals(userId)) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;只能删除自己的评论&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deleteCommentWithChildren(comment);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 递归删除子评论</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">deleteCommentWithChildren</span><span class="params">(Comment comment)</span> &#123;</span><br><span class="line">    <span class="comment">// 递归删除所有子评论</span></span><br><span class="line">    List&lt;Comment&gt; children = commentRepository.findByParentCommentId(comment.getId());</span><br><span class="line">    <span class="keyword">for</span> (Comment child : children) &#123;</span><br><span class="line">        deleteCommentWithChildren(child);  <span class="comment">// 递归调用</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 先删除该评论的所有点赞（解决FK约束）</span></span><br><span class="line">    commentLikeRepository.deleteByCommentId(comment.getId());</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 最后删除评论本身</span></span><br><span class="line">    commentRepository.deleteById(comment.getId());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="设计要点-1"><a href="#设计要点-1" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
-<li>深度优先遍历（DFS）</li>
-<li>时间复杂度 O(n)</li>
-<li>使用事务保证一致性</li>
-<li>显式控制删除顺序，避免外键（FK）约束问题</li>
+<p>但很快发现这样会非常麻烦。</p>
+<p>更简单的方式其实是把通知抽象成一条行为记录：</p>
+<p>某个用户对另一个用户做了一件事情。</p>
+<p>于是通知结构其实只需要几个关键字段：</p>
+<ul>
+<li>通知接收者</li>
+<li>操作发起者</li>
+<li>操作类型</li>
+<li>是否已读</li>
+<li>创建时间</li>
+<li>（如果涉及文章）文章 ID</li>
 </ul>
-<blockquote>
-<p>为避免复杂递归以及保留上下文，可考虑采用逻辑删除<code>private boolean deleted;</code>。</p>
-</blockquote>
-<hr>
-<h2 id="二、前端实现"><a href="#二、前端实现" class="headerlink" title="二、前端实现"></a>二、前端实现</h2><h3 id="1-数据结构设计"><a href="#1-数据结构设计" class="headerlink" title="1. 数据结构设计"></a>1. 数据结构设计</h3><p>前端接收的是<strong>平铺数组</strong>，自行构建树结构：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">data</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="attr">comments</span>: [],        <span class="comment">// 平铺的评论列表（从API获取）</span></span><br><span class="line">        <span class="attr">commentTree</span>: [],     <span class="comment">// 树型结构（用于渲染）</span></span><br><span class="line">        <span class="attr">newCommentContent</span>: <span class="string">&#x27;&#x27;</span>,  <span class="comment">// 新评论内容</span></span><br><span class="line">        <span class="attr">replyingTo</span>: <span class="literal">null</span>,    <span class="comment">// 当前回复的评论对象</span></span><br><span class="line">        <span class="attr">replyContent</span>: <span class="string">&#x27;&#x27;</span>     <span class="comment">// 回复内容</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>于是最后设计了一张 <code>notifications</code> 表。</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> notifications (</span><br><span class="line">    id <span class="type">BIGINT</span> <span class="keyword">PRIMARY KEY</span> AUTO_INCREMENT,</span><br><span class="line">    user_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    actor_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    type <span class="type">VARCHAR</span>(<span class="number">50</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">    article_id <span class="type">BIGINT</span>,</span><br><span class="line">    message_content <span class="type">VARCHAR</span>(<span class="number">1000</span>),</span><br><span class="line">    is_read <span class="type">BOOLEAN</span> <span class="keyword">DEFAULT</span> <span class="literal">FALSE</span>,</span><br><span class="line">    created_at <span class="type">TIMESTAMP</span> <span class="keyword">DEFAULT</span> <span class="built_in">CURRENT_TIMESTAMP</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
 
-<blockquote>
-<p>选择前端构建树结构而不是后端直接递归组装，是为了保持接口简单、避免后端递归查询带来的复杂度，同时让前端掌控展示策略。</p>
-</blockquote>
-<hr>
-<h3 id="2-评论树构建与展平"><a href="#2-评论树构建与展平" class="headerlink" title="2. 评论树构建与展平"></a>2. 评论树构建与展平</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">buildCommentTree</span>(<span class="params">comments</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> map = <span class="keyword">new</span> <span class="title class_">Map</span>();</span><br><span class="line">    <span class="keyword">const</span> roots = [];</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 1. 创建映射表，每个评论作为一个节点</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        map.<span class="title function_">set</span>(comment.<span class="property">id</span>, &#123; ...comment, <span class="attr">children</span>: [] &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 构建父子关系</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">const</span> node = map.<span class="title function_">get</span>(comment.<span class="property">id</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 顶级评论（没有父评论）</span></span><br><span class="line">        <span class="keyword">if</span> (!comment.<span class="property">parentId</span>) &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 找到最顶层的父评论（展平多层嵌套）</span></span><br><span class="line">        <span class="keyword">let</span> parent = map.<span class="title function_">get</span>(comment.<span class="property">parentId</span>);</span><br><span class="line">        <span class="keyword">while</span> (parent &amp;&amp; parent.<span class="property">parentId</span>) &#123;</span><br><span class="line">            parent = map.<span class="title function_">get</span>(parent.<span class="property">parentId</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 将当前评论添加到顶层父评论的children中</span></span><br><span class="line">        <span class="keyword">if</span> (parent) &#123;</span><br><span class="line">            parent.<span class="property">children</span>.<span class="title function_">push</span>(node);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);  <span class="comment">// 孤儿节点作为顶级评论</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> roots;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="设计要点-2"><a href="#设计要点-2" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
-<li>支持任意层级回复</li>
-<li>UI 只展示两层</li>
-<li>不需要后端额外接口</li>
-<li>构建复杂度 O(n)</li>
+<p>这里有两个字段比较关键。</p>
+<p><code>user_id</code><br>表示通知接收者。</p>
+<p>比如：</p>
+<p>“A 给 B 点赞”</p>
+<p>这里 <code>user_id = B</code>。</p>
+<p><code>actor_id</code><br>表示触发行为的人。</p>
+<p>同样这个例子里：</p>
+<p><code>actor_id = A</code>。</p>
+<p><code>type</code><br>通知类型，用来区分不同通知。</p>
+<p>目前我的系统里大概有几种：</p>
+<ul>
+<li><code>like</code></li>
+<li><code>favorite</code></li>
+<li><code>comment</code></li>
+<li><code>follow</code></li>
+<li><code>private_message</code></li>
 </ul>
-<blockquote>
-<p>前端只展示两层结构，避免前端无限递归渲染</p>
-</blockquote>
+<p>这种设计的好处是以后扩展会很方便，比如以后想加：</p>
+<ul>
+<li>系统通知</li>
+<li>管理员警告</li>
+<li>评论回复提醒</li>
+</ul>
+<p>都可以直接扩展 <code>type</code>。</p>
+<h2 id="二、通知是在哪生成的"><a href="#二、通知是在哪生成的" class="headerlink" title="二、通知是在哪生成的"></a>二、通知是在哪生成的</h2><p>通知本身其实只是一个附属功能，它一定是伴随着其他业务产生的。</p>
+<p>比如：</p>
+<ul>
+<li>点赞成功</li>
+<li>评论成功</li>
+<li>关注成功</li>
+</ul>
+<p>所以我的做法是把通知逻辑统一封装在一个 <code>NotificationService</code> 里。</p>
+<p>各个业务模块只需要在操作成功之后调用它。</p>
+<p>比如点赞文章的时候：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">notificationService.createNotification(</span><br><span class="line">    article.getAuthor().getId(),</span><br><span class="line">    userId,</span><br><span class="line">    <span class="string">&quot;like&quot;</span>,</span><br><span class="line">    articleId</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p>收藏、关注基本也是同样的逻辑。</p>
+<p>这样做的好处是：</p>
+<ul>
+<li>通知逻辑和业务逻辑是解耦的</li>
+<li>以后如果要改通知系统，只需要改一个地方</li>
+</ul>
+<h2 id="三、未读通知计数"><a href="#三、未读通知计数" class="headerlink" title="三、未读通知计数"></a>三、未读通知计数</h2><p>通知列表其实很好做，分页查数据库就行。</p>
+<p>真正麻烦的是未读通知数。</p>
+<p>因为很多地方都会显示它，比如：</p>
+<ul>
+<li>页面右上角的小红点</li>
+<li>消息中心</li>
+<li>移动端提示</li>
+</ul>
+<p>如果每次都查数据库：</p>
+<p><code>countByUserIdAndIsReadFalse(userId)</code></p>
+<p>在用户量大的情况下其实挺浪费资源的。</p>
+<p>所以我给未读计数加了一层 Redis 缓存。</p>
+<p>逻辑很简单：</p>
+<ul>
+<li>先查 Redis</li>
+<li>没命中再查数据库</li>
+<li>查到结果写回 Redis</li>
+</ul>
+<p>代码大概是这样：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">long</span> <span class="title function_">getUnreadCount</span><span class="params">(Long userId)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> <span class="string">&quot;notification:unread:count:&quot;</span> + userId;</span><br><span class="line"></span><br><span class="line">    <span class="type">Object</span> <span class="variable">cached</span> <span class="operator">=</span> redisUtil.get(key);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (cached != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> Long.parseLong(cached.toString());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> <span class="variable">count</span> <span class="operator">=</span> notificationRepository</span><br><span class="line">            .countByUserIdAndIsReadFalse(userId);</span><br><span class="line"></span><br><span class="line">    redisUtil.set(key, count, <span class="number">1800</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> count;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样大部分请求都会直接命中缓存。</p>
+<h2 id="四、缓存更新策略"><a href="#四、缓存更新策略" class="headerlink" title="四、缓存更新策略"></a>四、缓存更新策略</h2><p>缓存加上去之后，还要解决一个问题：什么时候更新 Redis？</p>
+<p>我的策略是：</p>
+<p>新通知产生的时候：</p>
+<p>Redis <code>count +1</code>，但前提是缓存已经存在。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (redisUtil.hasKey(countKey)) &#123;</span><br><span class="line">    redisUtil.incr(countKey, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果缓存不存在就不管，因为下次查询会重新建立缓存。</p>
+<p>而当通知被标记为已读时，我一开始的想法是：</p>
+<p><code>count -1</code></p>
+<p>但后来发现这个方案在并发情况下其实容易出问题。</p>
+<p>比如：</p>
+<ul>
+<li>用户同时标记多条通知</li>
+<li>或者新通知和标记已读同时发生</li>
+</ul>
+<p>最后可能导致计数不准确。</p>
+<p>所以最后我选择了一个更简单的方法：</p>
+<p>直接删除缓存。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">redisUtil.delete(countKey);</span><br></pre></td></tr></table></figure>
+
+<p>这样下次查询时会重新统计数据库。</p>
+<p>虽然多查了一次数据库，但逻辑会简单很多，也更安全。</p>
+<h2 id="五、数据库索引"><a href="#五、数据库索引" class="headerlink" title="五、数据库索引"></a>五、数据库索引</h2><p>通知列表是一个比较典型的查询：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">WHERE</span> user_id <span class="operator">=</span> ?</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> created_at <span class="keyword">DESC</span></span><br></pre></td></tr></table></figure>
+
+<p>另外一个高频查询是：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">WHERE</span> user_id <span class="operator">=</span> ?</span><br><span class="line"><span class="keyword">AND</span> is_read <span class="operator">=</span> <span class="literal">false</span></span><br></pre></td></tr></table></figure>
+
+<p>所以我给表加了一个联合索引：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">INDEX idx_user_read (user_id, is_read, created_at <span class="keyword">DESC</span>)</span><br></pre></td></tr></table></figure>
+
+<p>这个索引基本可以覆盖：</p>
+<ul>
+<li>通知列表查询</li>
+<li>未读通知查询</li>
+<li>未读数量统计</li>
+</ul>
+<p>效果还是挺明显的。</p>
+<h2 id="六、一个小坑"><a href="#六、一个小坑" class="headerlink" title="六、一个小坑"></a>六、一个小坑</h2><p>功能写完之后测试的时候，我发现一个很奇怪的现象：</p>
+<p>我给自己的文章点赞，系统也给我发了一条通知。</p>
+<p>技术上没问题，但体验非常奇怪。</p>
+<p>后来就在创建通知的时候加了一句判断：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (userId.equals(actorId)) &#123;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样就不会出现自己通知自己的情况了。</p>
+<h2 id="七、如果以后要升级"><a href="#七、如果以后要升级" class="headerlink" title="七、如果以后要升级"></a>七、如果以后要升级</h2><p>现在这个通知系统其实是一个比较基础的实现，如果继续完善的话还有不少可以做的。</p>
+<p>比如：</p>
+<h3 id="1-实时通知"><a href="#1-实时通知" class="headerlink" title="1. 实时通知"></a>1. 实时通知</h3><p>现在前端是每隔一段时间轮询接口。</p>
+<p>如果用 WebSocket，其实可以做到真正的实时推送。</p>
+<h3 id="2-消息队列"><a href="#2-消息队列" class="headerlink" title="2. 消息队列"></a>2. 消息队列</h3><p>现在通知是同步创建的。</p>
+<p>如果以后并发比较高，可以把通知放到 MQ 里异步处理。</p>
+<p>流程会变成：</p>
+<p>用户操作<br>↓<br>发送通知事件<br>↓<br>消息队列<br>↓<br>通知服务消费<br>↓<br>写入数据库</p>
+<p>这样可以减少主业务的延迟。</p>
 ]]></content>
       <categories>
         <category>项目总结</category>
       </categories>
       <tags>
         <tag>Spring Boot</tag>
+        <tag>Redis</tag>
         <tag>数据库设计</tag>
-        <tag>评论系统</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>为 Hexo 博客添加 Giscus 评论系统</title>
-    <url>/2026/02/08/add-giscus-comments/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>为博客添加评论功能是增强互动性的重要一步。这篇文章记录我为 Hexo + Butterfly 博客集成 Giscus 评论系统的完整过程。</p>
-<h2 id="为什么选择-Giscus？"><a href="#为什么选择-Giscus？" class="headerlink" title="为什么选择 Giscus？"></a>为什么选择 Giscus？</h2><p>在众多评论系统中（Disqus、Gitalk、Valine 等），我选择 Giscus 的原因：</p>
-<ul>
-<li><strong>无需数据库</strong>：不需要额外的后端服务</li>
-<li><strong>支持 Markdown</strong>：评论可以使用完整的 Markdown 语法</li>
-<li><strong>主题适配</strong>：自动适配网站的明暗主题</li>
-<li><strong>完全免费</strong>：无任何使用限制</li>
-<li><strong>隐私友好</strong>：不会追踪用户数据</li>
-</ul>
-<h2 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h2><h3 id="1-创建评论存储仓库"><a href="#1-创建评论存储仓库" class="headerlink" title="1. 创建评论存储仓库"></a>1. 创建评论存储仓库</h3><p>在 GitHub 上创建一个公开仓库用于存储评论数据。</p>
-<p><strong>关键设置：</strong></p>
-<ul>
-<li>仓库必须是 <strong>public</strong>（公开）</li>
-<li>启用 <strong>Discussions</strong> 功能：进入仓库 Settings → Features → 勾选 Discussions</li>
-</ul>
-<h3 id="2-安装-Giscus-App"><a href="#2-安装-Giscus-App" class="headerlink" title="2. 安装 Giscus App"></a>2. 安装 Giscus App</h3><p>访问 <a href="https://github.com/apps/giscus">Giscus App</a> 并安装到你的评论仓库：</p>
-<ol>
-<li>点击 “Install”</li>
-<li>选择 “Only select repositories”</li>
-<li>选中刚才创建的仓库</li>
-<li>授权安装</li>
-</ol>
-<h2 id="配置-Giscus"><a href="#配置-Giscus" class="headerlink" title="配置 Giscus"></a>配置 Giscus</h2><h3 id="3-获取配置参数"><a href="#3-获取配置参数" class="headerlink" title="3. 获取配置参数"></a>3. 获取配置参数</h3><p>访问 <a href="https://giscus.app/zh-CN">Giscus 官网</a> 进行配置：</p>
-<p><strong>① 仓库信息</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">仓库：用户名/仓库名</span><br></pre></td></tr></table></figure>
-
-<p><strong>② Discussion 分类</strong></p>
-<p>选择 “Announcements” 类型（推荐），这样只有仓库维护者可以创建新讨论，但所有人都能评论。</p>
-<p><strong>③ 映射方式</strong></p>
-<p>选择 “pathname”（路径名），这样每篇文章会根据 URL 路径自动创建对应的 Discussion。</p>
-<p><strong>④ 主题</strong></p>
-<p>选择 “preferred_color_scheme”（跟随系统），自动适配明暗模式。</p>
-<p><strong>⑤ 获取关键 ID</strong></p>
-<p>配置完成后，Giscus 会生成一段代码，从中提取两个关键参数：</p>
-<figure class="highlight html"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">script</span> <span class="attr">src</span>=<span class="string">&quot;https://giscus.app/client.js&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">data-repo</span>=<span class="string">&quot;用户名/仓库名&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">data-repo-id</span>=<span class="string">&quot;XXXXXXXXXXX&quot;</span>          &lt;!<span class="attr">--</span> <span class="attr">这是</span> <span class="attr">repo_id</span> <span class="attr">--</span>&gt;</span><span class="language-handlebars"><span class="language-xml"></span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        data-category=&quot;Announcements&quot;</span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        data-category-id=&quot;XXXXXXXXXXXX&quot; <span class="comment">&lt;!-- 这是 category_id --&gt;</span></span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        ...&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars"></span></span><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br></pre></td></tr></table></figure>
-
-<p>记下 <code>data-repo-id</code> 和 <code>data-category-id</code> 的值。</p>
-<h2 id="在-Butterfly-主题中配置"><a href="#在-Butterfly-主题中配置" class="headerlink" title="在 Butterfly 主题中配置"></a>在 Butterfly 主题中配置</h2><h3 id="4-修改主题配置文件"><a href="#4-修改主题配置文件" class="headerlink" title="4. 修改主题配置文件"></a>4. 修改主题配置文件</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>comments</code> 部分：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">comments:</span></span><br><span class="line">  <span class="comment"># 选择评论系统</span></span><br><span class="line">  <span class="attr">use:</span> <span class="string">giscus</span></span><br><span class="line">  <span class="attr">text:</span> <span class="literal">true</span></span><br><span class="line">  <span class="comment"># lazyload: 懒加载评论</span></span><br><span class="line">  <span class="attr">lazyload:</span> <span class="literal">false</span></span><br><span class="line">  <span class="comment"># count: 显示评论数</span></span><br><span class="line">  <span class="attr">count:</span> <span class="literal">true</span></span><br><span class="line">  <span class="comment"># card_post_count: 在卡片上显示评论数</span></span><br><span class="line">  <span class="attr">card_post_count:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
-
-<p>然后找到 <code>giscus</code> 配置段，填入参数：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">giscus:</span></span><br><span class="line">  <span class="attr">repo:</span> <span class="string">用户名/仓库名</span></span><br><span class="line">  <span class="attr">repo_id:</span> <span class="string">XXXXXXXXXXXXXXXXXX</span></span><br><span class="line">  <span class="attr">category_id:</span> <span class="string">XXXXXXXXXXXXXXXXXX</span></span><br><span class="line">  <span class="attr">theme:</span></span><br><span class="line">    <span class="attr">light:</span> <span class="string">light</span></span><br><span class="line">    <span class="attr">dark:</span> <span class="string">dark</span></span><br><span class="line">  <span class="attr">option:</span></span><br><span class="line">    <span class="attr">data-mapping:</span> <span class="string">pathname</span></span><br><span class="line">    <span class="attr">data-strict:</span> <span class="number">0</span></span><br><span class="line">    <span class="attr">data-reactions-enabled:</span> <span class="number">1</span></span><br><span class="line">    <span class="attr">data-emit-metadata:</span> <span class="number">0</span></span><br><span class="line">    <span class="attr">data-input-position:</span> <span class="string">bottom</span></span><br><span class="line">    <span class="attr">data-lang:</span> <span class="string">zh-CN</span></span><br><span class="line">    <span class="attr">data-loading:</span> <span class="string">lazy</span></span><br></pre></td></tr></table></figure>
-
-<p><strong>参数说明：</strong></p>
-<ul>
-<li><code>repo</code>: 你的评论仓库（格式：用户名&#x2F;仓库名）</li>
-<li><code>repo_id</code>: 从 Giscus 获取的仓库 ID</li>
-<li><code>category_id</code>: 从 Giscus 获取的分类 ID</li>
-<li><code>data-mapping: pathname</code>: 使用文章路径作为映射</li>
-<li><code>data-lang: zh-CN</code>: 界面语言设为中文</li>
-<li><code>data-reactions-enabled: 1</code>: 启用表情回应功能</li>
-</ul>
-<h3 id="5-重新生成并部署"><a href="#5-重新生成并部署" class="headerlink" title="5. 重新生成并部署"></a>5. 重新生成并部署</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo clean</span><br><span class="line">hexo generate</span><br><span class="line">hexo deploy</span><br></pre></td></tr></table></figure>
-
-<h2 id="效果验证"><a href="#效果验证" class="headerlink" title="效果验证"></a>效果验证</h2><p>部署完成后，访问任意文章页面，应该能看到：</p>
-<ul>
-<li>文章底部出现 Giscus 评论框</li>
-<li>需要登录 GitHub 才能评论</li>
-<li>评论会自动同步到仓库的 Discussions 中</li>
-<li>支持 Markdown 格式、代码高亮、表情回应</li>
-</ul>
-<h2 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h2><ol>
-<li><strong>仓库必须公开</strong>：私有仓库无法使用 Giscus</li>
-<li><strong>确保安装了 Giscus App</strong>：否则评论无法加载</li>
-<li><strong>Discussions 必须启用</strong>：在仓库设置中开启</li>
-<li><strong>首次评论会自动创建 Discussion</strong>：按文章路径命名</li>
-<li><strong>可以在 GitHub 仓库中管理评论</strong>：删除、编辑、置顶等</li>
-</ol>
-]]></content>
-      <categories>
-        <category>博客搭建</category>
-      </categories>
-      <tags>
-        <tag>Hexo</tag>
-        <tag>评论系统</tag>
-        <tag>Giscus</tag>
+        <tag>系统设计</tag>
+        <tag>通知系统</tag>
       </tags>
   </entry>
   <entry>
@@ -429,170 +432,6 @@
       </tags>
   </entry>
   <entry>
-    <title>消息通知系统</title>
-    <url>/2026/03/07/notification-system/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>最近在给自己的博客系统补一些互动功能，比如点赞、收藏、关注之类的。<br>做着做着就发现一个问题：用户其实不知道别人对他做了什么。</p>
-<p>比如：</p>
-<ul>
-<li>有人点赞了你的文章</li>
-<li>有人收藏了你的文章</li>
-<li>有人关注了你</li>
-<li>或者有人给你发了私信</li>
-</ul>
-<p>如果没有通知系统，这些行为基本就是“悄悄发生”，用户完全感知不到。</p>
-<p>所以就顺手把消息通知模块也做了一遍。这篇文章主要记录一下整个实现过程，以及中间踩的一些坑。</p>
-<h2 id="一、先想清楚通知是什么"><a href="#一、先想清楚通知是什么" class="headerlink" title="一、先想清楚通知是什么"></a>一、先想清楚通知是什么</h2><p>一开始我其实想过几种设计，比如：</p>
-<ul>
-<li>点赞通知一张表</li>
-<li>评论通知一张表</li>
-<li>关注通知一张表</li>
-</ul>
-<p>但很快发现这样会非常麻烦。</p>
-<p>更简单的方式其实是把通知抽象成一条行为记录：</p>
-<p>某个用户对另一个用户做了一件事情。</p>
-<p>于是通知结构其实只需要几个关键字段：</p>
-<ul>
-<li>通知接收者</li>
-<li>操作发起者</li>
-<li>操作类型</li>
-<li>是否已读</li>
-<li>创建时间</li>
-<li>（如果涉及文章）文章 ID</li>
-</ul>
-<p>于是最后设计了一张 <code>notifications</code> 表。</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> notifications (</span><br><span class="line">    id <span class="type">BIGINT</span> <span class="keyword">PRIMARY KEY</span> AUTO_INCREMENT,</span><br><span class="line">    user_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    actor_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    type <span class="type">VARCHAR</span>(<span class="number">50</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">    article_id <span class="type">BIGINT</span>,</span><br><span class="line">    message_content <span class="type">VARCHAR</span>(<span class="number">1000</span>),</span><br><span class="line">    is_read <span class="type">BOOLEAN</span> <span class="keyword">DEFAULT</span> <span class="literal">FALSE</span>,</span><br><span class="line">    created_at <span class="type">TIMESTAMP</span> <span class="keyword">DEFAULT</span> <span class="built_in">CURRENT_TIMESTAMP</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
-
-<p>这里有两个字段比较关键。</p>
-<p><code>user_id</code><br>表示通知接收者。</p>
-<p>比如：</p>
-<p>“A 给 B 点赞”</p>
-<p>这里 <code>user_id = B</code>。</p>
-<p><code>actor_id</code><br>表示触发行为的人。</p>
-<p>同样这个例子里：</p>
-<p><code>actor_id = A</code>。</p>
-<p><code>type</code><br>通知类型，用来区分不同通知。</p>
-<p>目前我的系统里大概有几种：</p>
-<ul>
-<li><code>like</code></li>
-<li><code>favorite</code></li>
-<li><code>comment</code></li>
-<li><code>follow</code></li>
-<li><code>private_message</code></li>
-</ul>
-<p>这种设计的好处是以后扩展会很方便，比如以后想加：</p>
-<ul>
-<li>系统通知</li>
-<li>管理员警告</li>
-<li>评论回复提醒</li>
-</ul>
-<p>都可以直接扩展 <code>type</code>。</p>
-<h2 id="二、通知是在哪生成的"><a href="#二、通知是在哪生成的" class="headerlink" title="二、通知是在哪生成的"></a>二、通知是在哪生成的</h2><p>通知本身其实只是一个附属功能，它一定是伴随着其他业务产生的。</p>
-<p>比如：</p>
-<ul>
-<li>点赞成功</li>
-<li>评论成功</li>
-<li>关注成功</li>
-</ul>
-<p>所以我的做法是把通知逻辑统一封装在一个 <code>NotificationService</code> 里。</p>
-<p>各个业务模块只需要在操作成功之后调用它。</p>
-<p>比如点赞文章的时候：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">notificationService.createNotification(</span><br><span class="line">    article.getAuthor().getId(),</span><br><span class="line">    userId,</span><br><span class="line">    <span class="string">&quot;like&quot;</span>,</span><br><span class="line">    articleId</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
-
-<p>收藏、关注基本也是同样的逻辑。</p>
-<p>这样做的好处是：</p>
-<ul>
-<li>通知逻辑和业务逻辑是解耦的</li>
-<li>以后如果要改通知系统，只需要改一个地方</li>
-</ul>
-<h2 id="三、未读通知计数"><a href="#三、未读通知计数" class="headerlink" title="三、未读通知计数"></a>三、未读通知计数</h2><p>通知列表其实很好做，分页查数据库就行。</p>
-<p>真正麻烦的是未读通知数。</p>
-<p>因为很多地方都会显示它，比如：</p>
-<ul>
-<li>页面右上角的小红点</li>
-<li>消息中心</li>
-<li>移动端提示</li>
-</ul>
-<p>如果每次都查数据库：</p>
-<p><code>countByUserIdAndIsReadFalse(userId)</code></p>
-<p>在用户量大的情况下其实挺浪费资源的。</p>
-<p>所以我给未读计数加了一层 Redis 缓存。</p>
-<p>逻辑很简单：</p>
-<ul>
-<li>先查 Redis</li>
-<li>没命中再查数据库</li>
-<li>查到结果写回 Redis</li>
-</ul>
-<p>代码大概是这样：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">long</span> <span class="title function_">getUnreadCount</span><span class="params">(Long userId)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> <span class="string">&quot;notification:unread:count:&quot;</span> + userId;</span><br><span class="line"></span><br><span class="line">    <span class="type">Object</span> <span class="variable">cached</span> <span class="operator">=</span> redisUtil.get(key);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (cached != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> Long.parseLong(cached.toString());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> <span class="variable">count</span> <span class="operator">=</span> notificationRepository</span><br><span class="line">            .countByUserIdAndIsReadFalse(userId);</span><br><span class="line"></span><br><span class="line">    redisUtil.set(key, count, <span class="number">1800</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> count;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这样大部分请求都会直接命中缓存。</p>
-<h2 id="四、缓存更新策略"><a href="#四、缓存更新策略" class="headerlink" title="四、缓存更新策略"></a>四、缓存更新策略</h2><p>缓存加上去之后，还要解决一个问题：什么时候更新 Redis？</p>
-<p>我的策略是：</p>
-<p>新通知产生的时候：</p>
-<p>Redis <code>count +1</code>，但前提是缓存已经存在。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (redisUtil.hasKey(countKey)) &#123;</span><br><span class="line">    redisUtil.incr(countKey, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>如果缓存不存在就不管，因为下次查询会重新建立缓存。</p>
-<p>而当通知被标记为已读时，我一开始的想法是：</p>
-<p><code>count -1</code></p>
-<p>但后来发现这个方案在并发情况下其实容易出问题。</p>
-<p>比如：</p>
-<ul>
-<li>用户同时标记多条通知</li>
-<li>或者新通知和标记已读同时发生</li>
-</ul>
-<p>最后可能导致计数不准确。</p>
-<p>所以最后我选择了一个更简单的方法：</p>
-<p>直接删除缓存。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">redisUtil.delete(countKey);</span><br></pre></td></tr></table></figure>
-
-<p>这样下次查询时会重新统计数据库。</p>
-<p>虽然多查了一次数据库，但逻辑会简单很多，也更安全。</p>
-<h2 id="五、数据库索引"><a href="#五、数据库索引" class="headerlink" title="五、数据库索引"></a>五、数据库索引</h2><p>通知列表是一个比较典型的查询：</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">WHERE</span> user_id <span class="operator">=</span> ?</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> created_at <span class="keyword">DESC</span></span><br></pre></td></tr></table></figure>
-
-<p>另外一个高频查询是：</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">WHERE</span> user_id <span class="operator">=</span> ?</span><br><span class="line"><span class="keyword">AND</span> is_read <span class="operator">=</span> <span class="literal">false</span></span><br></pre></td></tr></table></figure>
-
-<p>所以我给表加了一个联合索引：</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">INDEX idx_user_read (user_id, is_read, created_at <span class="keyword">DESC</span>)</span><br></pre></td></tr></table></figure>
-
-<p>这个索引基本可以覆盖：</p>
-<ul>
-<li>通知列表查询</li>
-<li>未读通知查询</li>
-<li>未读数量统计</li>
-</ul>
-<p>效果还是挺明显的。</p>
-<h2 id="六、一个小坑"><a href="#六、一个小坑" class="headerlink" title="六、一个小坑"></a>六、一个小坑</h2><p>功能写完之后测试的时候，我发现一个很奇怪的现象：</p>
-<p>我给自己的文章点赞，系统也给我发了一条通知。</p>
-<p>技术上没问题，但体验非常奇怪。</p>
-<p>后来就在创建通知的时候加了一句判断：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (userId.equals(actorId)) &#123;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这样就不会出现自己通知自己的情况了。</p>
-<h2 id="七、如果以后要升级"><a href="#七、如果以后要升级" class="headerlink" title="七、如果以后要升级"></a>七、如果以后要升级</h2><p>现在这个通知系统其实是一个比较基础的实现，如果继续完善的话还有不少可以做的。</p>
-<p>比如：</p>
-<h3 id="1-实时通知"><a href="#1-实时通知" class="headerlink" title="1. 实时通知"></a>1. 实时通知</h3><p>现在前端是每隔一段时间轮询接口。</p>
-<p>如果用 WebSocket，其实可以做到真正的实时推送。</p>
-<h3 id="2-消息队列"><a href="#2-消息队列" class="headerlink" title="2. 消息队列"></a>2. 消息队列</h3><p>现在通知是同步创建的。</p>
-<p>如果以后并发比较高，可以把通知放到 MQ 里异步处理。</p>
-<p>流程会变成：</p>
-<p>用户操作<br>↓<br>发送通知事件<br>↓<br>消息队列<br>↓<br>通知服务消费<br>↓<br>写入数据库</p>
-<p>这样可以减少主业务的延迟。</p>
-]]></content>
-      <categories>
-        <category>项目总结</category>
-      </categories>
-      <tags>
-        <tag>Spring Boot</tag>
-        <tag>数据库设计</tag>
-        <tag>Redis</tag>
-        <tag>系统设计</tag>
-        <tag>通知系统</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>一次理解访问者模式</title>
     <url>/2026/03/15/visitor-pattern-when-operations-change/</url>
     <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>在学习设计模式时，访问者模式经常被认为是比较难理解的一种模式。</p>
@@ -719,9 +558,170 @@
         <category>项目总结</category>
       </categories>
       <tags>
+        <tag>系统设计</tag>
         <tag>Java</tag>
         <tag>设计模式</tag>
-        <tag>系统设计</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>评论系统设计与实现</title>
+    <url>/2026/02/11/comment-system/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>本文记录我在博客项目中实现评论功能时，涉及的一些细节。</p>
+<hr>
+<h2 id="一、后端实现"><a href="#一、后端实现" class="headerlink" title="一、后端实现"></a>一、后端实现</h2><h3 id="1-评论实体设计（Comment）"><a href="#1-评论实体设计（Comment）" class="headerlink" title="1. 评论实体设计（Comment）"></a>1. 评论实体设计（Comment）</h3><p>评论表的核心在于<strong>自引用关系</strong>：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Entity</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Comment</span> &#123;</span><br><span class="line">    <span class="meta">@Id</span></span><br><span class="line">    <span class="keyword">private</span> Long id;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> String content;  <span class="comment">// VARCHAR(1000)</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> Article article;  <span class="comment">// 所属文章</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> User author;  <span class="comment">// 评论作者</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.LAZY)</span></span><br><span class="line">    <span class="keyword">private</span> Comment parentComment;  <span class="comment">// 父评论（自引用关系）</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@CreationTimestamp</span></span><br><span class="line">    <span class="keyword">private</span> LocalDateTime createdAt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="设计要点"><a href="#设计要点" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
+<li><code>parentComment</code> 指向自身，实现评论嵌套</li>
+<li>父评论使用 <code>LAZY</code>，避免循环加载</li>
+<li>作者、文章使用 <code>EAGER</code>，避免访问时频繁触发延迟加载</li>
+<li>不在实体中直接维护 children，避免 ORM 复杂度失控</li>
+</ul>
+<blockquote>
+<p>高并发场景应使用join fetch 或DTO投影来精确控制查询行为。</p>
+</blockquote>
+<hr>
+<h3 id="2-数据访问层（Repository）"><a href="#2-数据访问层（Repository）" class="headerlink" title="2. 数据访问层（Repository）"></a>2. 数据访问层（Repository）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">CommentRepository</span> <span class="keyword">extends</span> <span class="title class_">JpaRepository</span>&lt;Comment, Long&gt; &#123;</span><br><span class="line">    <span class="comment">// 按文章ID查询，升序排列（老评论在前）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByArticleIdOrderByCreatedAtAsc</span><span class="params">(Long articleId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 按作者ID查询（用于个人主页）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByAuthorId</span><span class="params">(Long authorId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 查找子评论（用于级联删除）</span></span><br><span class="line">    List&lt;Comment&gt; <span class="title function_">findByParentCommentId</span><span class="params">(Long parentId)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p> 👉 <strong>递归删除时依赖 <code>findByParentCommentId</code> 查找子节点</strong></p>
+<blockquote>
+<p>评论属于高频读写表，后续应在数据库层添加必要索引。</p>
+</blockquote>
+<hr>
+<h3 id="3-评论创建逻辑（Service）"><a href="#3-评论创建逻辑（Service）" class="headerlink" title="3. 评论创建逻辑（Service）"></a>3. 评论创建逻辑（Service）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> CommentDTO <span class="title function_">createComment</span><span class="params">(Long articleId, Long userId, String content, Long parentId)</span> &#123;</span><br><span class="line">    <span class="comment">// 验证文章和用户存在</span></span><br><span class="line">    <span class="type">Article</span> <span class="variable">article</span> <span class="operator">=</span> articleRepository.findById(articleId)...</span><br><span class="line">    <span class="type">User</span> <span class="variable">author</span> <span class="operator">=</span> userRepository.findById(userId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 验证内容非空</span></span><br><span class="line">    <span class="keyword">if</span> (content == <span class="literal">null</span> || content.trim().isEmpty()) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;评论内容不能为空&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 如果是回复，验证父评论</span></span><br><span class="line">    <span class="keyword">if</span> (parentId != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="type">Comment</span> <span class="variable">parent</span> <span class="operator">=</span> commentRepository.findById(parentId)...</span><br><span class="line">        <span class="comment">// 确保父评论属于同一篇文章</span></span><br><span class="line">        <span class="keyword">if</span> (!parent.getArticle().getId().equals(articleId)) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;父评论与文章不匹配&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        comment.setParentComment(parent);<span class="comment">// 设置parentcomment</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 保存并转换为DTO</span></span><br><span class="line">    comment = commentRepository.save(comment);</span><br><span class="line">    <span class="keyword">return</span> convertToDTO(comment, userId);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="核心约束点"><a href="#核心约束点" class="headerlink" title="核心约束点"></a>核心约束点</h4><ul>
+<li>回复的父评论必须属于同一篇文章</li>
+<li>所有评论统一通过 DTO 返回，避免实体泄露</li>
+<li>创建逻辑不做层级限制，展示逻辑交给前端</li>
+</ul>
+<hr>
+<h3 id="4-递归级联删除"><a href="#4-递归级联删除" class="headerlink" title="4. 递归级联删除"></a>4. 递归级联删除</h3><p>删除一条评论时，必须同时删除：</p>
+<ol>
+<li>所有子评论（递归）</li>
+<li>所有关联的点赞记录</li>
+<li>保证外键约束不报错</li>
+<li>保证操作原子性</li>
+</ol>
+<h4 id="实现方案"><a href="#实现方案" class="headerlink" title="实现方案"></a>实现方案</h4><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">deleteComment</span><span class="params">(Long commentId, Long userId)</span> &#123;</span><br><span class="line">    <span class="type">Comment</span> <span class="variable">comment</span> <span class="operator">=</span> commentRepository.findById(commentId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 权限检查：只能删除自己的评论</span></span><br><span class="line">    <span class="keyword">if</span> (!comment.getAuthor().getId().equals(userId)) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;只能删除自己的评论&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deleteCommentWithChildren(comment);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 递归删除子评论</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">deleteCommentWithChildren</span><span class="params">(Comment comment)</span> &#123;</span><br><span class="line">    <span class="comment">// 递归删除所有子评论</span></span><br><span class="line">    List&lt;Comment&gt; children = commentRepository.findByParentCommentId(comment.getId());</span><br><span class="line">    <span class="keyword">for</span> (Comment child : children) &#123;</span><br><span class="line">        deleteCommentWithChildren(child);  <span class="comment">// 递归调用</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 先删除该评论的所有点赞（解决FK约束）</span></span><br><span class="line">    commentLikeRepository.deleteByCommentId(comment.getId());</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 最后删除评论本身</span></span><br><span class="line">    commentRepository.deleteById(comment.getId());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="设计要点-1"><a href="#设计要点-1" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
+<li>深度优先遍历（DFS）</li>
+<li>时间复杂度 O(n)</li>
+<li>使用事务保证一致性</li>
+<li>显式控制删除顺序，避免外键（FK）约束问题</li>
+</ul>
+<blockquote>
+<p>为避免复杂递归以及保留上下文，可考虑采用逻辑删除<code>private boolean deleted;</code>。</p>
+</blockquote>
+<hr>
+<h2 id="二、前端实现"><a href="#二、前端实现" class="headerlink" title="二、前端实现"></a>二、前端实现</h2><h3 id="1-数据结构设计"><a href="#1-数据结构设计" class="headerlink" title="1. 数据结构设计"></a>1. 数据结构设计</h3><p>前端接收的是<strong>平铺数组</strong>，自行构建树结构：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">data</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="attr">comments</span>: [],        <span class="comment">// 平铺的评论列表（从API获取）</span></span><br><span class="line">        <span class="attr">commentTree</span>: [],     <span class="comment">// 树型结构（用于渲染）</span></span><br><span class="line">        <span class="attr">newCommentContent</span>: <span class="string">&#x27;&#x27;</span>,  <span class="comment">// 新评论内容</span></span><br><span class="line">        <span class="attr">replyingTo</span>: <span class="literal">null</span>,    <span class="comment">// 当前回复的评论对象</span></span><br><span class="line">        <span class="attr">replyContent</span>: <span class="string">&#x27;&#x27;</span>     <span class="comment">// 回复内容</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>选择前端构建树结构而不是后端直接递归组装，是为了保持接口简单、避免后端递归查询带来的复杂度，同时让前端掌控展示策略。</p>
+</blockquote>
+<hr>
+<h3 id="2-评论树构建与展平"><a href="#2-评论树构建与展平" class="headerlink" title="2. 评论树构建与展平"></a>2. 评论树构建与展平</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">buildCommentTree</span>(<span class="params">comments</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> map = <span class="keyword">new</span> <span class="title class_">Map</span>();</span><br><span class="line">    <span class="keyword">const</span> roots = [];</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 1. 创建映射表，每个评论作为一个节点</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        map.<span class="title function_">set</span>(comment.<span class="property">id</span>, &#123; ...comment, <span class="attr">children</span>: [] &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 构建父子关系</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">const</span> node = map.<span class="title function_">get</span>(comment.<span class="property">id</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 顶级评论（没有父评论）</span></span><br><span class="line">        <span class="keyword">if</span> (!comment.<span class="property">parentId</span>) &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 找到最顶层的父评论（展平多层嵌套）</span></span><br><span class="line">        <span class="keyword">let</span> parent = map.<span class="title function_">get</span>(comment.<span class="property">parentId</span>);</span><br><span class="line">        <span class="keyword">while</span> (parent &amp;&amp; parent.<span class="property">parentId</span>) &#123;</span><br><span class="line">            parent = map.<span class="title function_">get</span>(parent.<span class="property">parentId</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 将当前评论添加到顶层父评论的children中</span></span><br><span class="line">        <span class="keyword">if</span> (parent) &#123;</span><br><span class="line">            parent.<span class="property">children</span>.<span class="title function_">push</span>(node);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);  <span class="comment">// 孤儿节点作为顶级评论</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> roots;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="设计要点-2"><a href="#设计要点-2" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
+<li>支持任意层级回复</li>
+<li>UI 只展示两层</li>
+<li>不需要后端额外接口</li>
+<li>构建复杂度 O(n)</li>
+</ul>
+<blockquote>
+<p>前端只展示两层结构，避免前端无限递归渲染</p>
+</blockquote>
+]]></content>
+      <categories>
+        <category>项目总结</category>
+      </categories>
+      <tags>
+        <tag>Spring Boot</tag>
+        <tag>数据库设计</tag>
+        <tag>评论系统</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>为 Hexo 博客添加 Giscus 评论系统</title>
+    <url>/2026/02/08/add-giscus-comments/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>为博客添加评论功能是增强互动性的重要一步。这篇文章记录我为 Hexo + Butterfly 博客集成 Giscus 评论系统的完整过程。</p>
+<h2 id="为什么选择-Giscus？"><a href="#为什么选择-Giscus？" class="headerlink" title="为什么选择 Giscus？"></a>为什么选择 Giscus？</h2><p>在众多评论系统中（Disqus、Gitalk、Valine 等），我选择 Giscus 的原因：</p>
+<ul>
+<li><strong>无需数据库</strong>：不需要额外的后端服务</li>
+<li><strong>支持 Markdown</strong>：评论可以使用完整的 Markdown 语法</li>
+<li><strong>主题适配</strong>：自动适配网站的明暗主题</li>
+<li><strong>完全免费</strong>：无任何使用限制</li>
+<li><strong>隐私友好</strong>：不会追踪用户数据</li>
+</ul>
+<h2 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h2><h3 id="1-创建评论存储仓库"><a href="#1-创建评论存储仓库" class="headerlink" title="1. 创建评论存储仓库"></a>1. 创建评论存储仓库</h3><p>在 GitHub 上创建一个公开仓库用于存储评论数据。</p>
+<p><strong>关键设置：</strong></p>
+<ul>
+<li>仓库必须是 <strong>public</strong>（公开）</li>
+<li>启用 <strong>Discussions</strong> 功能：进入仓库 Settings → Features → 勾选 Discussions</li>
+</ul>
+<h3 id="2-安装-Giscus-App"><a href="#2-安装-Giscus-App" class="headerlink" title="2. 安装 Giscus App"></a>2. 安装 Giscus App</h3><p>访问 <a href="https://github.com/apps/giscus">Giscus App</a> 并安装到你的评论仓库：</p>
+<ol>
+<li>点击 “Install”</li>
+<li>选择 “Only select repositories”</li>
+<li>选中刚才创建的仓库</li>
+<li>授权安装</li>
+</ol>
+<h2 id="配置-Giscus"><a href="#配置-Giscus" class="headerlink" title="配置 Giscus"></a>配置 Giscus</h2><h3 id="3-获取配置参数"><a href="#3-获取配置参数" class="headerlink" title="3. 获取配置参数"></a>3. 获取配置参数</h3><p>访问 <a href="https://giscus.app/zh-CN">Giscus 官网</a> 进行配置：</p>
+<p><strong>① 仓库信息</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">仓库：用户名/仓库名</span><br></pre></td></tr></table></figure>
+
+<p><strong>② Discussion 分类</strong></p>
+<p>选择 “Announcements” 类型（推荐），这样只有仓库维护者可以创建新讨论，但所有人都能评论。</p>
+<p><strong>③ 映射方式</strong></p>
+<p>选择 “pathname”（路径名），这样每篇文章会根据 URL 路径自动创建对应的 Discussion。</p>
+<p><strong>④ 主题</strong></p>
+<p>选择 “preferred_color_scheme”（跟随系统），自动适配明暗模式。</p>
+<p><strong>⑤ 获取关键 ID</strong></p>
+<p>配置完成后，Giscus 会生成一段代码，从中提取两个关键参数：</p>
+<figure class="highlight html"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">script</span> <span class="attr">src</span>=<span class="string">&quot;https://giscus.app/client.js&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">data-repo</span>=<span class="string">&quot;用户名/仓库名&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">data-repo-id</span>=<span class="string">&quot;XXXXXXXXXXX&quot;</span>          &lt;!<span class="attr">--</span> <span class="attr">这是</span> <span class="attr">repo_id</span> <span class="attr">--</span>&gt;</span><span class="language-handlebars"><span class="language-xml"></span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        data-category=&quot;Announcements&quot;</span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        data-category-id=&quot;XXXXXXXXXXXX&quot; <span class="comment">&lt;!-- 这是 category_id --&gt;</span></span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        ...&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars"></span></span><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>记下 <code>data-repo-id</code> 和 <code>data-category-id</code> 的值。</p>
+<h2 id="在-Butterfly-主题中配置"><a href="#在-Butterfly-主题中配置" class="headerlink" title="在 Butterfly 主题中配置"></a>在 Butterfly 主题中配置</h2><h3 id="4-修改主题配置文件"><a href="#4-修改主题配置文件" class="headerlink" title="4. 修改主题配置文件"></a>4. 修改主题配置文件</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>comments</code> 部分：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">comments:</span></span><br><span class="line">  <span class="comment"># 选择评论系统</span></span><br><span class="line">  <span class="attr">use:</span> <span class="string">giscus</span></span><br><span class="line">  <span class="attr">text:</span> <span class="literal">true</span></span><br><span class="line">  <span class="comment"># lazyload: 懒加载评论</span></span><br><span class="line">  <span class="attr">lazyload:</span> <span class="literal">false</span></span><br><span class="line">  <span class="comment"># count: 显示评论数</span></span><br><span class="line">  <span class="attr">count:</span> <span class="literal">true</span></span><br><span class="line">  <span class="comment"># card_post_count: 在卡片上显示评论数</span></span><br><span class="line">  <span class="attr">card_post_count:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<p>然后找到 <code>giscus</code> 配置段，填入参数：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">giscus:</span></span><br><span class="line">  <span class="attr">repo:</span> <span class="string">用户名/仓库名</span></span><br><span class="line">  <span class="attr">repo_id:</span> <span class="string">XXXXXXXXXXXXXXXXXX</span></span><br><span class="line">  <span class="attr">category_id:</span> <span class="string">XXXXXXXXXXXXXXXXXX</span></span><br><span class="line">  <span class="attr">theme:</span></span><br><span class="line">    <span class="attr">light:</span> <span class="string">light</span></span><br><span class="line">    <span class="attr">dark:</span> <span class="string">dark</span></span><br><span class="line">  <span class="attr">option:</span></span><br><span class="line">    <span class="attr">data-mapping:</span> <span class="string">pathname</span></span><br><span class="line">    <span class="attr">data-strict:</span> <span class="number">0</span></span><br><span class="line">    <span class="attr">data-reactions-enabled:</span> <span class="number">1</span></span><br><span class="line">    <span class="attr">data-emit-metadata:</span> <span class="number">0</span></span><br><span class="line">    <span class="attr">data-input-position:</span> <span class="string">bottom</span></span><br><span class="line">    <span class="attr">data-lang:</span> <span class="string">zh-CN</span></span><br><span class="line">    <span class="attr">data-loading:</span> <span class="string">lazy</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>参数说明：</strong></p>
+<ul>
+<li><code>repo</code>: 你的评论仓库（格式：用户名&#x2F;仓库名）</li>
+<li><code>repo_id</code>: 从 Giscus 获取的仓库 ID</li>
+<li><code>category_id</code>: 从 Giscus 获取的分类 ID</li>
+<li><code>data-mapping: pathname</code>: 使用文章路径作为映射</li>
+<li><code>data-lang: zh-CN</code>: 界面语言设为中文</li>
+<li><code>data-reactions-enabled: 1</code>: 启用表情回应功能</li>
+</ul>
+<h3 id="5-重新生成并部署"><a href="#5-重新生成并部署" class="headerlink" title="5. 重新生成并部署"></a>5. 重新生成并部署</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo clean</span><br><span class="line">hexo generate</span><br><span class="line">hexo deploy</span><br></pre></td></tr></table></figure>
+
+<h2 id="效果验证"><a href="#效果验证" class="headerlink" title="效果验证"></a>效果验证</h2><p>部署完成后，访问任意文章页面，应该能看到：</p>
+<ul>
+<li>文章底部出现 Giscus 评论框</li>
+<li>需要登录 GitHub 才能评论</li>
+<li>评论会自动同步到仓库的 Discussions 中</li>
+<li>支持 Markdown 格式、代码高亮、表情回应</li>
+</ul>
+<h2 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h2><ol>
+<li><strong>仓库必须公开</strong>：私有仓库无法使用 Giscus</li>
+<li><strong>确保安装了 Giscus App</strong>：否则评论无法加载</li>
+<li><strong>Discussions 必须启用</strong>：在仓库设置中开启</li>
+<li><strong>首次评论会自动创建 Discussion</strong>：按文章路径命名</li>
+<li><strong>可以在 GitHub 仓库中管理评论</strong>：删除、编辑、置顶等</li>
+</ol>
+]]></content>
+      <categories>
+        <category>博客搭建</category>
+      </categories>
+      <tags>
+        <tag>Hexo</tag>
+        <tag>评论系统</tag>
+        <tag>Giscus</tag>
       </tags>
   </entry>
 </search>
