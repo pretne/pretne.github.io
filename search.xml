@@ -1,167 +1,164 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>消息通知系统</title>
-    <url>/2026/03/07/notification-system/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>最近在给自己的博客系统补一些互动功能，比如点赞、收藏、关注之类的。<br>做着做着就发现一个问题：用户其实不知道别人对他做了什么。</p>
-<p>比如：</p>
+    <title>为 Hexo 博客添加 Giscus 评论系统</title>
+    <url>/2026/02/08/add-giscus-comments/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>为博客添加评论功能是增强互动性的重要一步。这篇文章记录我为 Hexo + Butterfly 博客集成 Giscus 评论系统的完整过程。</p>
+<h2 id="为什么选择-Giscus？"><a href="#为什么选择-Giscus？" class="headerlink" title="为什么选择 Giscus？"></a>为什么选择 Giscus？</h2><p>在众多评论系统中（Disqus、Gitalk、Valine 等），我选择 Giscus 的原因：</p>
 <ul>
-<li>有人点赞了你的文章</li>
-<li>有人收藏了你的文章</li>
-<li>有人关注了你</li>
-<li>或者有人给你发了私信</li>
+<li><strong>无需数据库</strong>：不需要额外的后端服务</li>
+<li><strong>支持 Markdown</strong>：评论可以使用完整的 Markdown 语法</li>
+<li><strong>主题适配</strong>：自动适配网站的明暗主题</li>
+<li><strong>完全免费</strong>：无任何使用限制</li>
+<li><strong>隐私友好</strong>：不会追踪用户数据</li>
 </ul>
-<p>如果没有通知系统，这些行为基本就是“悄悄发生”，用户完全感知不到。</p>
-<p>所以就顺手把消息通知模块也做了一遍。这篇文章主要记录一下整个实现过程，以及中间踩的一些坑。</p>
-<h2 id="一、先想清楚通知是什么"><a href="#一、先想清楚通知是什么" class="headerlink" title="一、先想清楚通知是什么"></a>一、先想清楚通知是什么</h2><p>一开始我其实想过几种设计，比如：</p>
+<h2 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h2><h3 id="1-创建评论存储仓库"><a href="#1-创建评论存储仓库" class="headerlink" title="1. 创建评论存储仓库"></a>1. 创建评论存储仓库</h3><p>在 GitHub 上创建一个公开仓库用于存储评论数据。</p>
+<p><strong>关键设置：</strong></p>
 <ul>
-<li>点赞通知一张表</li>
-<li>评论通知一张表</li>
-<li>关注通知一张表</li>
+<li>仓库必须是 <strong>public</strong>（公开）</li>
+<li>启用 <strong>Discussions</strong> 功能：进入仓库 Settings → Features → 勾选 Discussions</li>
 </ul>
-<p>但很快发现这样会非常麻烦。</p>
-<p>更简单的方式其实是把通知抽象成一条行为记录：</p>
-<p>某个用户对另一个用户做了一件事情。</p>
-<p>于是通知结构其实只需要几个关键字段：</p>
-<ul>
-<li>通知接收者</li>
-<li>操作发起者</li>
-<li>操作类型</li>
-<li>是否已读</li>
-<li>创建时间</li>
-<li>（如果涉及文章）文章 ID</li>
-</ul>
-<p>于是最后设计了一张 <code>notifications</code> 表。</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> notifications (</span><br><span class="line">    id <span class="type">BIGINT</span> <span class="keyword">PRIMARY KEY</span> AUTO_INCREMENT,</span><br><span class="line">    user_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    actor_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    type <span class="type">VARCHAR</span>(<span class="number">50</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">    article_id <span class="type">BIGINT</span>,</span><br><span class="line">    message_content <span class="type">VARCHAR</span>(<span class="number">1000</span>),</span><br><span class="line">    is_read <span class="type">BOOLEAN</span> <span class="keyword">DEFAULT</span> <span class="literal">FALSE</span>,</span><br><span class="line">    created_at <span class="type">TIMESTAMP</span> <span class="keyword">DEFAULT</span> <span class="built_in">CURRENT_TIMESTAMP</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<h3 id="2-安装-Giscus-App"><a href="#2-安装-Giscus-App" class="headerlink" title="2. 安装 Giscus App"></a>2. 安装 Giscus App</h3><p>访问 <a href="https://github.com/apps/giscus">Giscus App</a> 并安装到你的评论仓库：</p>
+<ol>
+<li>点击 “Install”</li>
+<li>选择 “Only select repositories”</li>
+<li>选中刚才创建的仓库</li>
+<li>授权安装</li>
+</ol>
+<h2 id="配置-Giscus"><a href="#配置-Giscus" class="headerlink" title="配置 Giscus"></a>配置 Giscus</h2><h3 id="3-获取配置参数"><a href="#3-获取配置参数" class="headerlink" title="3. 获取配置参数"></a>3. 获取配置参数</h3><p>访问 <a href="https://giscus.app/zh-CN">Giscus 官网</a> 进行配置：</p>
+<p><strong>① 仓库信息</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">仓库：用户名/仓库名</span><br></pre></td></tr></table></figure>
 
-<p>这里有两个字段比较关键。</p>
-<p><code>user_id</code><br>表示通知接收者。</p>
-<p>比如：</p>
-<p>“A 给 B 点赞”</p>
-<p>这里 <code>user_id = B</code>。</p>
-<p><code>actor_id</code><br>表示触发行为的人。</p>
-<p>同样这个例子里：</p>
-<p><code>actor_id = A</code>。</p>
-<p><code>type</code><br>通知类型，用来区分不同通知。</p>
-<p>目前我的系统里大概有几种：</p>
-<ul>
-<li><code>like</code></li>
-<li><code>favorite</code></li>
-<li><code>comment</code></li>
-<li><code>follow</code></li>
-<li><code>private_message</code></li>
-</ul>
-<p>这种设计的好处是以后扩展会很方便，比如以后想加：</p>
-<ul>
-<li>系统通知</li>
-<li>管理员警告</li>
-<li>评论回复提醒</li>
-</ul>
-<p>都可以直接扩展 <code>type</code>。</p>
-<h2 id="二、通知是在哪生成的"><a href="#二、通知是在哪生成的" class="headerlink" title="二、通知是在哪生成的"></a>二、通知是在哪生成的</h2><p>通知本身其实只是一个附属功能，它一定是伴随着其他业务产生的。</p>
-<p>比如：</p>
-<ul>
-<li>点赞成功</li>
-<li>评论成功</li>
-<li>关注成功</li>
-</ul>
-<p>所以我的做法是把通知逻辑统一封装在一个 <code>NotificationService</code> 里。</p>
-<p>各个业务模块只需要在操作成功之后调用它。</p>
-<p>比如点赞文章的时候：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">notificationService.createNotification(</span><br><span class="line">    article.getAuthor().getId(),</span><br><span class="line">    userId,</span><br><span class="line">    <span class="string">&quot;like&quot;</span>,</span><br><span class="line">    articleId</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<p><strong>② Discussion 分类</strong></p>
+<p>选择 “Announcements” 类型（推荐），这样只有仓库维护者可以创建新讨论，但所有人都能评论。</p>
+<p><strong>③ 映射方式</strong></p>
+<p>选择 “pathname”（路径名），这样每篇文章会根据 URL 路径自动创建对应的 Discussion。</p>
+<p><strong>④ 主题</strong></p>
+<p>选择 “preferred_color_scheme”（跟随系统），自动适配明暗模式。</p>
+<p><strong>⑤ 获取关键 ID</strong></p>
+<p>配置完成后，Giscus 会生成一段代码，从中提取两个关键参数：</p>
+<figure class="highlight html"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">script</span> <span class="attr">src</span>=<span class="string">&quot;https://giscus.app/client.js&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">data-repo</span>=<span class="string">&quot;用户名/仓库名&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">data-repo-id</span>=<span class="string">&quot;XXXXXXXXXXX&quot;</span>          &lt;!<span class="attr">--</span> <span class="attr">这是</span> <span class="attr">repo_id</span> <span class="attr">--</span>&gt;</span><span class="language-handlebars"><span class="language-xml"></span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        data-category=&quot;Announcements&quot;</span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        data-category-id=&quot;XXXXXXXXXXXX&quot; <span class="comment">&lt;!-- 这是 category_id --&gt;</span></span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        ...&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars"></span></span><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br></pre></td></tr></table></figure>
 
-<p>收藏、关注基本也是同样的逻辑。</p>
-<p>这样做的好处是：</p>
+<p>记下 <code>data-repo-id</code> 和 <code>data-category-id</code> 的值。</p>
+<h2 id="在-Butterfly-主题中配置"><a href="#在-Butterfly-主题中配置" class="headerlink" title="在 Butterfly 主题中配置"></a>在 Butterfly 主题中配置</h2><h3 id="4-修改主题配置文件"><a href="#4-修改主题配置文件" class="headerlink" title="4. 修改主题配置文件"></a>4. 修改主题配置文件</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>comments</code> 部分：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">comments:</span></span><br><span class="line">  <span class="comment"># 选择评论系统</span></span><br><span class="line">  <span class="attr">use:</span> <span class="string">giscus</span></span><br><span class="line">  <span class="attr">text:</span> <span class="literal">true</span></span><br><span class="line">  <span class="comment"># lazyload: 懒加载评论</span></span><br><span class="line">  <span class="attr">lazyload:</span> <span class="literal">false</span></span><br><span class="line">  <span class="comment"># count: 显示评论数</span></span><br><span class="line">  <span class="attr">count:</span> <span class="literal">true</span></span><br><span class="line">  <span class="comment"># card_post_count: 在卡片上显示评论数</span></span><br><span class="line">  <span class="attr">card_post_count:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<p>然后找到 <code>giscus</code> 配置段，填入参数：</p>
+<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">giscus:</span></span><br><span class="line">  <span class="attr">repo:</span> <span class="string">用户名/仓库名</span></span><br><span class="line">  <span class="attr">repo_id:</span> <span class="string">XXXXXXXXXXXXXXXXXX</span></span><br><span class="line">  <span class="attr">category_id:</span> <span class="string">XXXXXXXXXXXXXXXXXX</span></span><br><span class="line">  <span class="attr">theme:</span></span><br><span class="line">    <span class="attr">light:</span> <span class="string">light</span></span><br><span class="line">    <span class="attr">dark:</span> <span class="string">dark</span></span><br><span class="line">  <span class="attr">option:</span></span><br><span class="line">    <span class="attr">data-mapping:</span> <span class="string">pathname</span></span><br><span class="line">    <span class="attr">data-strict:</span> <span class="number">0</span></span><br><span class="line">    <span class="attr">data-reactions-enabled:</span> <span class="number">1</span></span><br><span class="line">    <span class="attr">data-emit-metadata:</span> <span class="number">0</span></span><br><span class="line">    <span class="attr">data-input-position:</span> <span class="string">bottom</span></span><br><span class="line">    <span class="attr">data-lang:</span> <span class="string">zh-CN</span></span><br><span class="line">    <span class="attr">data-loading:</span> <span class="string">lazy</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>参数说明：</strong></p>
 <ul>
-<li>通知逻辑和业务逻辑是解耦的</li>
-<li>以后如果要改通知系统，只需要改一个地方</li>
+<li><code>repo</code>: 你的评论仓库（格式：用户名&#x2F;仓库名）</li>
+<li><code>repo_id</code>: 从 Giscus 获取的仓库 ID</li>
+<li><code>category_id</code>: 从 Giscus 获取的分类 ID</li>
+<li><code>data-mapping: pathname</code>: 使用文章路径作为映射</li>
+<li><code>data-lang: zh-CN</code>: 界面语言设为中文</li>
+<li><code>data-reactions-enabled: 1</code>: 启用表情回应功能</li>
 </ul>
-<h2 id="三、未读通知计数"><a href="#三、未读通知计数" class="headerlink" title="三、未读通知计数"></a>三、未读通知计数</h2><p>通知列表其实很好做，分页查数据库就行。</p>
-<p>真正麻烦的是未读通知数。</p>
-<p>因为很多地方都会显示它，比如：</p>
+<h3 id="5-重新生成并部署"><a href="#5-重新生成并部署" class="headerlink" title="5. 重新生成并部署"></a>5. 重新生成并部署</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo clean</span><br><span class="line">hexo generate</span><br><span class="line">hexo deploy</span><br></pre></td></tr></table></figure>
+
+<h2 id="效果验证"><a href="#效果验证" class="headerlink" title="效果验证"></a>效果验证</h2><p>部署完成后，访问任意文章页面，应该能看到：</p>
 <ul>
-<li>页面右上角的小红点</li>
-<li>消息中心</li>
-<li>移动端提示</li>
+<li>文章底部出现 Giscus 评论框</li>
+<li>需要登录 GitHub 才能评论</li>
+<li>评论会自动同步到仓库的 Discussions 中</li>
+<li>支持 Markdown 格式、代码高亮、表情回应</li>
 </ul>
-<p>如果每次都查数据库：</p>
-<p><code>countByUserIdAndIsReadFalse(userId)</code></p>
-<p>在用户量大的情况下其实挺浪费资源的。</p>
-<p>所以我给未读计数加了一层 Redis 缓存。</p>
-<p>逻辑很简单：</p>
-<ul>
-<li>先查 Redis</li>
-<li>没命中再查数据库</li>
-<li>查到结果写回 Redis</li>
+<h2 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h2><ol>
+<li><strong>仓库必须公开</strong>：私有仓库无法使用 Giscus</li>
+<li><strong>确保安装了 Giscus App</strong>：否则评论无法加载</li>
+<li><strong>Discussions 必须启用</strong>：在仓库设置中开启</li>
+<li><strong>首次评论会自动创建 Discussion</strong>：按文章路径命名</li>
+<li><strong>可以在 GitHub 仓库中管理评论</strong>：删除、编辑、置顶等</li>
+</ol>
+]]></content>
+      <categories>
+        <category>博客搭建</category>
+      </categories>
+      <tags>
+        <tag>Hexo</tag>
+        <tag>Giscus</tag>
+        <tag>评论系统</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>评论系统设计与实现</title>
+    <url>/2026/02/11/comment-system/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>本文记录我在博客项目中实现评论功能时，涉及的一些细节。</p>
+<hr>
+<h2 id="一、后端实现"><a href="#一、后端实现" class="headerlink" title="一、后端实现"></a>一、后端实现</h2><h3 id="1-评论实体设计（Comment）"><a href="#1-评论实体设计（Comment）" class="headerlink" title="1. 评论实体设计（Comment）"></a>1. 评论实体设计（Comment）</h3><p>评论表的核心在于<strong>自引用关系</strong>：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Entity</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Comment</span> &#123;</span><br><span class="line">    <span class="meta">@Id</span></span><br><span class="line">    <span class="keyword">private</span> Long id;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> String content;  <span class="comment">// VARCHAR(1000)</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> Article article;  <span class="comment">// 所属文章</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> User author;  <span class="comment">// 评论作者</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.LAZY)</span></span><br><span class="line">    <span class="keyword">private</span> Comment parentComment;  <span class="comment">// 父评论（自引用关系）</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@CreationTimestamp</span></span><br><span class="line">    <span class="keyword">private</span> LocalDateTime createdAt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="设计要点"><a href="#设计要点" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
+<li><code>parentComment</code> 指向自身，实现评论嵌套</li>
+<li>父评论使用 <code>LAZY</code>，避免循环加载</li>
+<li>作者、文章使用 <code>EAGER</code>，避免访问时频繁触发延迟加载</li>
+<li>不在实体中直接维护 children，避免 ORM 复杂度失控</li>
 </ul>
-<p>代码大概是这样：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">long</span> <span class="title function_">getUnreadCount</span><span class="params">(Long userId)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> <span class="string">&quot;notification:unread:count:&quot;</span> + userId;</span><br><span class="line"></span><br><span class="line">    <span class="type">Object</span> <span class="variable">cached</span> <span class="operator">=</span> redisUtil.get(key);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (cached != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> Long.parseLong(cached.toString());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> <span class="variable">count</span> <span class="operator">=</span> notificationRepository</span><br><span class="line">            .countByUserIdAndIsReadFalse(userId);</span><br><span class="line"></span><br><span class="line">    redisUtil.set(key, count, <span class="number">1800</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> count;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>高并发场景应使用join fetch 或DTO投影来精确控制查询行为。</p>
+</blockquote>
+<hr>
+<h3 id="2-数据访问层（Repository）"><a href="#2-数据访问层（Repository）" class="headerlink" title="2. 数据访问层（Repository）"></a>2. 数据访问层（Repository）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">CommentRepository</span> <span class="keyword">extends</span> <span class="title class_">JpaRepository</span>&lt;Comment, Long&gt; &#123;</span><br><span class="line">    <span class="comment">// 按文章ID查询，升序排列（老评论在前）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByArticleIdOrderByCreatedAtAsc</span><span class="params">(Long articleId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 按作者ID查询（用于个人主页）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByAuthorId</span><span class="params">(Long authorId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 查找子评论（用于级联删除）</span></span><br><span class="line">    List&lt;Comment&gt; <span class="title function_">findByParentCommentId</span><span class="params">(Long parentId)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<p>这样大部分请求都会直接命中缓存。</p>
-<h2 id="四、缓存更新策略"><a href="#四、缓存更新策略" class="headerlink" title="四、缓存更新策略"></a>四、缓存更新策略</h2><p>缓存加上去之后，还要解决一个问题：什么时候更新 Redis？</p>
-<p>我的策略是：</p>
-<p>新通知产生的时候：</p>
-<p>Redis <code>count +1</code>，但前提是缓存已经存在。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (redisUtil.hasKey(countKey)) &#123;</span><br><span class="line">    redisUtil.incr(countKey, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> 👉 <strong>递归删除时依赖 <code>findByParentCommentId</code> 查找子节点</strong></p>
+<blockquote>
+<p>评论属于高频读写表，后续应在数据库层添加必要索引。</p>
+</blockquote>
+<hr>
+<h3 id="3-评论创建逻辑（Service）"><a href="#3-评论创建逻辑（Service）" class="headerlink" title="3. 评论创建逻辑（Service）"></a>3. 评论创建逻辑（Service）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> CommentDTO <span class="title function_">createComment</span><span class="params">(Long articleId, Long userId, String content, Long parentId)</span> &#123;</span><br><span class="line">    <span class="comment">// 验证文章和用户存在</span></span><br><span class="line">    <span class="type">Article</span> <span class="variable">article</span> <span class="operator">=</span> articleRepository.findById(articleId)...</span><br><span class="line">    <span class="type">User</span> <span class="variable">author</span> <span class="operator">=</span> userRepository.findById(userId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 验证内容非空</span></span><br><span class="line">    <span class="keyword">if</span> (content == <span class="literal">null</span> || content.trim().isEmpty()) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;评论内容不能为空&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 如果是回复，验证父评论</span></span><br><span class="line">    <span class="keyword">if</span> (parentId != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="type">Comment</span> <span class="variable">parent</span> <span class="operator">=</span> commentRepository.findById(parentId)...</span><br><span class="line">        <span class="comment">// 确保父评论属于同一篇文章</span></span><br><span class="line">        <span class="keyword">if</span> (!parent.getArticle().getId().equals(articleId)) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;父评论与文章不匹配&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        comment.setParentComment(parent);<span class="comment">// 设置parentcomment</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 保存并转换为DTO</span></span><br><span class="line">    comment = commentRepository.save(comment);</span><br><span class="line">    <span class="keyword">return</span> convertToDTO(comment, userId);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<p>如果缓存不存在就不管，因为下次查询会重新建立缓存。</p>
-<p>而当通知被标记为已读时，我一开始的想法是：</p>
-<p><code>count -1</code></p>
-<p>但后来发现这个方案在并发情况下其实容易出问题。</p>
-<p>比如：</p>
-<ul>
-<li>用户同时标记多条通知</li>
-<li>或者新通知和标记已读同时发生</li>
+<h4 id="核心约束点"><a href="#核心约束点" class="headerlink" title="核心约束点"></a>核心约束点</h4><ul>
+<li>回复的父评论必须属于同一篇文章</li>
+<li>所有评论统一通过 DTO 返回，避免实体泄露</li>
+<li>创建逻辑不做层级限制，展示逻辑交给前端</li>
 </ul>
-<p>最后可能导致计数不准确。</p>
-<p>所以最后我选择了一个更简单的方法：</p>
-<p>直接删除缓存。</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">redisUtil.delete(countKey);</span><br></pre></td></tr></table></figure>
+<hr>
+<h3 id="4-递归级联删除"><a href="#4-递归级联删除" class="headerlink" title="4. 递归级联删除"></a>4. 递归级联删除</h3><p>删除一条评论时，必须同时删除：</p>
+<ol>
+<li>所有子评论（递归）</li>
+<li>所有关联的点赞记录</li>
+<li>保证外键约束不报错</li>
+<li>保证操作原子性</li>
+</ol>
+<h4 id="实现方案"><a href="#实现方案" class="headerlink" title="实现方案"></a>实现方案</h4><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">deleteComment</span><span class="params">(Long commentId, Long userId)</span> &#123;</span><br><span class="line">    <span class="type">Comment</span> <span class="variable">comment</span> <span class="operator">=</span> commentRepository.findById(commentId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 权限检查：只能删除自己的评论</span></span><br><span class="line">    <span class="keyword">if</span> (!comment.getAuthor().getId().equals(userId)) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;只能删除自己的评论&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deleteCommentWithChildren(comment);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 递归删除子评论</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">deleteCommentWithChildren</span><span class="params">(Comment comment)</span> &#123;</span><br><span class="line">    <span class="comment">// 递归删除所有子评论</span></span><br><span class="line">    List&lt;Comment&gt; children = commentRepository.findByParentCommentId(comment.getId());</span><br><span class="line">    <span class="keyword">for</span> (Comment child : children) &#123;</span><br><span class="line">        deleteCommentWithChildren(child);  <span class="comment">// 递归调用</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 先删除该评论的所有点赞（解决FK约束）</span></span><br><span class="line">    commentLikeRepository.deleteByCommentId(comment.getId());</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 最后删除评论本身</span></span><br><span class="line">    commentRepository.deleteById(comment.getId());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<p>这样下次查询时会重新统计数据库。</p>
-<p>虽然多查了一次数据库，但逻辑会简单很多，也更安全。</p>
-<h2 id="五、数据库索引"><a href="#五、数据库索引" class="headerlink" title="五、数据库索引"></a>五、数据库索引</h2><p>通知列表是一个比较典型的查询：</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">WHERE</span> user_id <span class="operator">=</span> ?</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> created_at <span class="keyword">DESC</span></span><br></pre></td></tr></table></figure>
-
-<p>另外一个高频查询是：</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">WHERE</span> user_id <span class="operator">=</span> ?</span><br><span class="line"><span class="keyword">AND</span> is_read <span class="operator">=</span> <span class="literal">false</span></span><br></pre></td></tr></table></figure>
-
-<p>所以我给表加了一个联合索引：</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">INDEX idx_user_read (user_id, is_read, created_at <span class="keyword">DESC</span>)</span><br></pre></td></tr></table></figure>
-
-<p>这个索引基本可以覆盖：</p>
-<ul>
-<li>通知列表查询</li>
-<li>未读通知查询</li>
-<li>未读数量统计</li>
+<h4 id="设计要点-1"><a href="#设计要点-1" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
+<li>深度优先遍历（DFS）</li>
+<li>时间复杂度 O(n)</li>
+<li>使用事务保证一致性</li>
+<li>显式控制删除顺序，避免外键（FK）约束问题</li>
 </ul>
-<p>效果还是挺明显的。</p>
-<h2 id="六、一个小坑"><a href="#六、一个小坑" class="headerlink" title="六、一个小坑"></a>六、一个小坑</h2><p>功能写完之后测试的时候，我发现一个很奇怪的现象：</p>
-<p>我给自己的文章点赞，系统也给我发了一条通知。</p>
-<p>技术上没问题，但体验非常奇怪。</p>
-<p>后来就在创建通知的时候加了一句判断：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (userId.equals(actorId)) &#123;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>为避免复杂递归以及保留上下文，可考虑采用逻辑删除<code>private boolean deleted;</code>。</p>
+</blockquote>
+<hr>
+<h2 id="二、前端实现"><a href="#二、前端实现" class="headerlink" title="二、前端实现"></a>二、前端实现</h2><h3 id="1-数据结构设计"><a href="#1-数据结构设计" class="headerlink" title="1. 数据结构设计"></a>1. 数据结构设计</h3><p>前端接收的是<strong>平铺数组</strong>，自行构建树结构：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">data</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="attr">comments</span>: [],        <span class="comment">// 平铺的评论列表（从API获取）</span></span><br><span class="line">        <span class="attr">commentTree</span>: [],     <span class="comment">// 树型结构（用于渲染）</span></span><br><span class="line">        <span class="attr">newCommentContent</span>: <span class="string">&#x27;&#x27;</span>,  <span class="comment">// 新评论内容</span></span><br><span class="line">        <span class="attr">replyingTo</span>: <span class="literal">null</span>,    <span class="comment">// 当前回复的评论对象</span></span><br><span class="line">        <span class="attr">replyContent</span>: <span class="string">&#x27;&#x27;</span>     <span class="comment">// 回复内容</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<p>这样就不会出现自己通知自己的情况了。</p>
-<h2 id="七、如果以后要升级"><a href="#七、如果以后要升级" class="headerlink" title="七、如果以后要升级"></a>七、如果以后要升级</h2><p>现在这个通知系统其实是一个比较基础的实现，如果继续完善的话还有不少可以做的。</p>
-<p>比如：</p>
-<h3 id="1-实时通知"><a href="#1-实时通知" class="headerlink" title="1. 实时通知"></a>1. 实时通知</h3><p>现在前端是每隔一段时间轮询接口。</p>
-<p>如果用 WebSocket，其实可以做到真正的实时推送。</p>
-<h3 id="2-消息队列"><a href="#2-消息队列" class="headerlink" title="2. 消息队列"></a>2. 消息队列</h3><p>现在通知是同步创建的。</p>
-<p>如果以后并发比较高，可以把通知放到 MQ 里异步处理。</p>
-<p>流程会变成：</p>
-<p>用户操作<br>↓<br>发送通知事件<br>↓<br>消息队列<br>↓<br>通知服务消费<br>↓<br>写入数据库</p>
-<p>这样可以减少主业务的延迟。</p>
+<blockquote>
+<p>选择前端构建树结构而不是后端直接递归组装，是为了保持接口简单、避免后端递归查询带来的复杂度，同时让前端掌控展示策略。</p>
+</blockquote>
+<hr>
+<h3 id="2-评论树构建与展平"><a href="#2-评论树构建与展平" class="headerlink" title="2. 评论树构建与展平"></a>2. 评论树构建与展平</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">buildCommentTree</span>(<span class="params">comments</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> map = <span class="keyword">new</span> <span class="title class_">Map</span>();</span><br><span class="line">    <span class="keyword">const</span> roots = [];</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 1. 创建映射表，每个评论作为一个节点</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        map.<span class="title function_">set</span>(comment.<span class="property">id</span>, &#123; ...comment, <span class="attr">children</span>: [] &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 构建父子关系</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">const</span> node = map.<span class="title function_">get</span>(comment.<span class="property">id</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 顶级评论（没有父评论）</span></span><br><span class="line">        <span class="keyword">if</span> (!comment.<span class="property">parentId</span>) &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 找到最顶层的父评论（展平多层嵌套）</span></span><br><span class="line">        <span class="keyword">let</span> parent = map.<span class="title function_">get</span>(comment.<span class="property">parentId</span>);</span><br><span class="line">        <span class="keyword">while</span> (parent &amp;&amp; parent.<span class="property">parentId</span>) &#123;</span><br><span class="line">            parent = map.<span class="title function_">get</span>(parent.<span class="property">parentId</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 将当前评论添加到顶层父评论的children中</span></span><br><span class="line">        <span class="keyword">if</span> (parent) &#123;</span><br><span class="line">            parent.<span class="property">children</span>.<span class="title function_">push</span>(node);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);  <span class="comment">// 孤儿节点作为顶级评论</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> roots;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="设计要点-2"><a href="#设计要点-2" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
+<li>支持任意层级回复</li>
+<li>UI 只展示两层</li>
+<li>不需要后端额外接口</li>
+<li>构建复杂度 O(n)</li>
+</ul>
+<blockquote>
+<p>前端只展示两层结构，避免前端无限递归渲染</p>
+</blockquote>
 ]]></content>
       <categories>
         <category>项目总结</category>
       </categories>
       <tags>
+        <tag>评论系统</tag>
         <tag>Spring Boot</tag>
-        <tag>Redis</tag>
         <tag>数据库设计</tag>
-        <tag>系统设计</tag>
-        <tag>通知系统</tag>
       </tags>
   </entry>
   <entry>
@@ -380,164 +377,194 @@
       </tags>
   </entry>
   <entry>
-    <title>为 Hexo 博客添加 Giscus 评论系统</title>
-    <url>/2026/02/08/add-giscus-comments/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>为博客添加评论功能是增强互动性的重要一步。这篇文章记录我为 Hexo + Butterfly 博客集成 Giscus 评论系统的完整过程。</p>
-<h2 id="为什么选择-Giscus？"><a href="#为什么选择-Giscus？" class="headerlink" title="为什么选择 Giscus？"></a>为什么选择 Giscus？</h2><p>在众多评论系统中（Disqus、Gitalk、Valine 等），我选择 Giscus 的原因：</p>
-<ul>
-<li><strong>无需数据库</strong>：不需要额外的后端服务</li>
-<li><strong>支持 Markdown</strong>：评论可以使用完整的 Markdown 语法</li>
-<li><strong>主题适配</strong>：自动适配网站的明暗主题</li>
-<li><strong>完全免费</strong>：无任何使用限制</li>
-<li><strong>隐私友好</strong>：不会追踪用户数据</li>
-</ul>
-<h2 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h2><h3 id="1-创建评论存储仓库"><a href="#1-创建评论存储仓库" class="headerlink" title="1. 创建评论存储仓库"></a>1. 创建评论存储仓库</h3><p>在 GitHub 上创建一个公开仓库用于存储评论数据。</p>
-<p><strong>关键设置：</strong></p>
-<ul>
-<li>仓库必须是 <strong>public</strong>（公开）</li>
-<li>启用 <strong>Discussions</strong> 功能：进入仓库 Settings → Features → 勾选 Discussions</li>
-</ul>
-<h3 id="2-安装-Giscus-App"><a href="#2-安装-Giscus-App" class="headerlink" title="2. 安装 Giscus App"></a>2. 安装 Giscus App</h3><p>访问 <a href="https://github.com/apps/giscus">Giscus App</a> 并安装到你的评论仓库：</p>
+    <title>从“找邻居”到“做判断”：理解 K 近邻与决策树</title>
+    <url>/2026/10/02/knn-and-decision-tree-introduction/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>学习机器学习时，一个很自然的问题是：给计算机一些已经标注好的例子，它怎样判断一个没见过的新样本？</p>
+<p>比如，我们记录了一批水果的重量和直径，也知道它们分别是苹果还是橘子。现在拿来一个新水果，只告诉模型它的重量和直径，希望模型预测它的类别。</p>
+<p>K 近邻和决策树给出了两种直观的思路：前者寻找相似的例子，后者沿着学到的判断规则一步步做决定。</p>
+<p>这篇文章以分类问题为主，介绍它们的原理、容易踩的坑和基本用法。</p>
+<h2 id="一、先分清特征与标签"><a href="#一、先分清特征与标签" class="headerlink" title="一、先分清特征与标签"></a>一、先分清特征与标签</h2><p>在水果分类中，一条数据可以写成这样：</p>
+<table>
+<thead>
+<tr>
+<th>重量（克）</th>
+<th>直径（厘米）</th>
+<th>类别</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>150</td>
+<td>7.0</td>
+<td>苹果</td>
+</tr>
+<tr>
+<td>130</td>
+<td>6.5</td>
+<td>橘子</td>
+</tr>
+</tbody></table>
+<p>重量和直径是<strong>特征</strong>，类别是<strong>标签</strong>。前两列组成输入 <code>X</code>，最后一列是目标 <code>y</code>。</p>
+<p>训练时，模型能看到特征和标签；预测时，模型根据新样本的特征推断标签。这属于监督学习。</p>
+<p>下面的水果例子只用于解释算法。现实中两种水果的重量和直径可能高度重叠，是否能分清，需要用实际数据检验。</p>
+<h2 id="二、K-近邻：看看附近的样本属于哪一类"><a href="#二、K-近邻：看看附近的样本属于哪一类" class="headerlink" title="二、K 近邻：看看附近的样本属于哪一类"></a>二、K 近邻：看看附近的样本属于哪一类</h2><p>K 近邻（K-Nearest Neighbors，简称 KNN）的核心步骤很简单：</p>
 <ol>
-<li>点击 “Install”</li>
-<li>选择 “Only select repositories”</li>
-<li>选中刚才创建的仓库</li>
-<li>授权安装</li>
+<li>计算新样本与训练样本之间的距离。</li>
+<li>找到距离最近的 K 个样本。</li>
+<li>根据这些邻居的标签投票，得到预测类别。</li>
 </ol>
-<h2 id="配置-Giscus"><a href="#配置-Giscus" class="headerlink" title="配置 Giscus"></a>配置 Giscus</h2><h3 id="3-获取配置参数"><a href="#3-获取配置参数" class="headerlink" title="3. 获取配置参数"></a>3. 获取配置参数</h3><p>访问 <a href="https://giscus.app/zh-CN">Giscus 官网</a> 进行配置：</p>
-<p><strong>① 仓库信息</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">仓库：用户名/仓库名</span><br></pre></td></tr></table></figure>
+<p>假设 <code>K = 3</code>，离新水果最近的三个邻居分别是苹果、苹果、橘子，那么在等权投票下，模型会预测它是苹果。</p>
+<p>这里的 K 表示参与判断的邻居数量，和数据有多少个类别没有关系。KNN 也不同于 K-Means：前者在这里使用已有标签进行分类，后者是一种聚类算法。</p>
+<h3 id="1-“相近”怎样计算？"><a href="#1-“相近”怎样计算？" class="headerlink" title="1. “相近”怎样计算？"></a>1. “相近”怎样计算？</h3><p>常见选择是欧氏距离。对于两个二维样本 <code>(a₁, a₂)</code> 和 <code>(b₁, b₂)</code>：</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">d(a, b) = √[(a₁ - b₁)² + (a₂ - b₂)²]</span><br></pre></td></tr></table></figure>
 
-<p><strong>② Discussion 分类</strong></p>
-<p>选择 “Announcements” 类型（推荐），这样只有仓库维护者可以创建新讨论，但所有人都能评论。</p>
-<p><strong>③ 映射方式</strong></p>
-<p>选择 “pathname”（路径名），这样每篇文章会根据 URL 路径自动创建对应的 Discussion。</p>
-<p><strong>④ 主题</strong></p>
-<p>选择 “preferred_color_scheme”（跟随系统），自动适配明暗模式。</p>
-<p><strong>⑤ 获取关键 ID</strong></p>
-<p>配置完成后，Giscus 会生成一段代码，从中提取两个关键参数：</p>
-<figure class="highlight html"><table><tr><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">script</span> <span class="attr">src</span>=<span class="string">&quot;https://giscus.app/client.js&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">data-repo</span>=<span class="string">&quot;用户名/仓库名&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">data-repo-id</span>=<span class="string">&quot;XXXXXXXXXXX&quot;</span>          &lt;!<span class="attr">--</span> <span class="attr">这是</span> <span class="attr">repo_id</span> <span class="attr">--</span>&gt;</span><span class="language-handlebars"><span class="language-xml"></span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        data-category=&quot;Announcements&quot;</span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        data-category-id=&quot;XXXXXXXXXXXX&quot; <span class="comment">&lt;!-- 这是 category_id --&gt;</span></span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars">        ...&gt;</span></span></span><br><span class="line"><span class="language-xml"><span class="language-handlebars"></span></span><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>推广到多个特征，就是把每一维的差的平方加起来，再开平方。</p>
+<p>不过，距离的定义必须适合数据。数字接近不一定代表语义接近，比如把城市编码为 1、2、3，并不能据此说城市 1 比城市 3 更接近城市 2。</p>
+<h3 id="2-为什么通常要缩放特征？"><a href="#2-为什么通常要缩放特征？" class="headerlink" title="2. 为什么通常要缩放特征？"></a>2. 为什么通常要缩放特征？</h3><p>水果的重量可能相差几十克，直径却只相差几厘米。直接计算欧氏距离时，重量这一维可能主导结果，直径的影响被压小。</p>
+<p>常见处理是标准化：</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">标准化后的值 = (原值 - 训练集均值) / 训练集标准差</span><br></pre></td></tr></table></figure>
 
-<p>记下 <code>data-repo-id</code> 和 <code>data-category-id</code> 的值。</p>
-<h2 id="在-Butterfly-主题中配置"><a href="#在-Butterfly-主题中配置" class="headerlink" title="在 Butterfly 主题中配置"></a>在 Butterfly 主题中配置</h2><h3 id="4-修改主题配置文件"><a href="#4-修改主题配置文件" class="headerlink" title="4. 修改主题配置文件"></a>4. 修改主题配置文件</h3><p>打开 <code>themes/butterfly/_config.yml</code>，找到 <code>comments</code> 部分：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">comments:</span></span><br><span class="line">  <span class="comment"># 选择评论系统</span></span><br><span class="line">  <span class="attr">use:</span> <span class="string">giscus</span></span><br><span class="line">  <span class="attr">text:</span> <span class="literal">true</span></span><br><span class="line">  <span class="comment"># lazyload: 懒加载评论</span></span><br><span class="line">  <span class="attr">lazyload:</span> <span class="literal">false</span></span><br><span class="line">  <span class="comment"># count: 显示评论数</span></span><br><span class="line">  <span class="attr">count:</span> <span class="literal">true</span></span><br><span class="line">  <span class="comment"># card_post_count: 在卡片上显示评论数</span></span><br><span class="line">  <span class="attr">card_post_count:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+<p>它可以减少量纲带来的影响，但不会自动判断哪个特征更重要。</p>
+<p>还有一个关键细节：<strong>均值和标准差应只从训练数据中计算，再用于转换验证集、测试集和新样本。</strong> 提前用完整数据标准化，会把测试集的信息带进训练流程，造成数据泄漏。</p>
+<h3 id="3-K-应该选多大？"><a href="#3-K-应该选多大？" class="headerlink" title="3. K 应该选多大？"></a>3. K 应该选多大？</h3><p>K 太小，判断容易受局部噪声影响。例如 <code>K = 1</code> 时，最近的那个样本如果标错了，预测也可能跟着出错。</p>
+<p>K 太大，又可能把较远、属于其他区域的样本一起纳入判断，抹平原本有意义的局部差异。</p>
+<p>通常可以尝试多个 K 值，通过验证集或交叉验证选择。二分类中使用奇数 K 能减少等权投票的平票，但多分类或加权投票仍可能出现平局，不能把“选奇数”当成完整解决方案。</p>
+<h3 id="4-邻居也可以有不同权重"><a href="#4-邻居也可以有不同权重" class="headerlink" title="4. 邻居也可以有不同权重"></a>4. 邻居也可以有不同权重</h3><p>除了每个邻居一票，还可以让距离更近的邻居有更大影响。例如使用与距离倒数相关的权重。</p>
+<p>这样可以表达“特别接近的样本更值得参考”，但是否有效仍要验证。scikit-learn 提供了等权和距离加权两种常用设置，分别对应 <code>weights=&quot;uniform&quot;</code> 和 <code>weights=&quot;distance&quot;</code>。参见 <a href="https://scikit-learn.org/stable/modules/neighbors.html">KNN 官方文档</a>。</p>
+<h3 id="5-KNN-的成本在哪里？"><a href="#5-KNN-的成本在哪里？" class="headerlink" title="5. KNN 的成本在哪里？"></a>5. KNN 的成本在哪里？</h3><p>KNN 通常不需要训练一组复杂的模型参数，而是保存训练样本，并可能构建搜索索引，所以常被称为“惰性学习”。</p>
+<p>预测时却需要寻找邻居。使用朴素遍历，对一个新样本计算全部距离的成本约为 <code>O(n × d)</code>，其中 n 是训练样本数，d 是特征维度；筛选邻居还需要额外工作。</p>
+<p>搜索索引可以改善部分场景，但高维数据会让距离变得不那么有区分力，索引的加速效果也可能下降。因此，KNN 在大样本、高维或严格低延迟的场景下需要谨慎评估。</p>
+<h2 id="三、决策树：把判断拆成一串问题"><a href="#三、决策树：把判断拆成一串问题" class="headerlink" title="三、决策树：把判断拆成一串问题"></a>三、决策树：把判断拆成一串问题</h2><p>决策树可以理解为一套从数据中学到的条件判断。</p>
+<p>下面是一棵用于解释结构的示意树，阈值是人为举例，并非对真实水果数据训练得到：</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">重量 ≤ 140 克？</span><br><span class="line">├── 是：预测为橘子</span><br><span class="line">└── 否：直径 ≤ 7 厘米？</span><br><span class="line">    ├── 是：预测为橘子</span><br><span class="line">    └── 否：预测为苹果</span><br></pre></td></tr></table></figure>
 
-<p>然后找到 <code>giscus</code> 配置段，填入参数：</p>
-<figure class="highlight yaml"><table><tr><td class="code"><pre><span class="line"><span class="attr">giscus:</span></span><br><span class="line">  <span class="attr">repo:</span> <span class="string">用户名/仓库名</span></span><br><span class="line">  <span class="attr">repo_id:</span> <span class="string">XXXXXXXXXXXXXXXXXX</span></span><br><span class="line">  <span class="attr">category_id:</span> <span class="string">XXXXXXXXXXXXXXXXXX</span></span><br><span class="line">  <span class="attr">theme:</span></span><br><span class="line">    <span class="attr">light:</span> <span class="string">light</span></span><br><span class="line">    <span class="attr">dark:</span> <span class="string">dark</span></span><br><span class="line">  <span class="attr">option:</span></span><br><span class="line">    <span class="attr">data-mapping:</span> <span class="string">pathname</span></span><br><span class="line">    <span class="attr">data-strict:</span> <span class="number">0</span></span><br><span class="line">    <span class="attr">data-reactions-enabled:</span> <span class="number">1</span></span><br><span class="line">    <span class="attr">data-emit-metadata:</span> <span class="number">0</span></span><br><span class="line">    <span class="attr">data-input-position:</span> <span class="string">bottom</span></span><br><span class="line">    <span class="attr">data-lang:</span> <span class="string">zh-CN</span></span><br><span class="line">    <span class="attr">data-loading:</span> <span class="string">lazy</span></span><br></pre></td></tr></table></figure>
+<p>最上面的判断是根节点，中间的判断是内部节点，最后给出预测的是叶节点。新样本从根节点开始，根据条件选择分支，直到到达叶节点。</p>
+<p>这种形式很像 <code>if / else</code>，区别在于：训练算法会从数据中选择特征和阈值。</p>
+<h3 id="1-怎样选择一个“好问题”？"><a href="#1-怎样选择一个“好问题”？" class="headerlink" title="1. 怎样选择一个“好问题”？"></a>1. 怎样选择一个“好问题”？</h3><p>假设某个节点有 10 个水果，其中 5 个苹果、5 个橘子，类别很混杂。</p>
+<p>如果按某个条件划分后，左边全是苹果、右边全是橘子，这次划分就很有价值。若划分后两边仍然各有一半苹果、一半橘子，帮助就很小。</p>
+<p>决策树需要一个指标来衡量这种混杂程度。常见指标之一是基尼不纯度：</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">Gini = 1 - Σ pᵢ²</span><br></pre></td></tr></table></figure>
 
-<p><strong>参数说明：</strong></p>
+<p>其中 <code>pᵢ</code> 表示节点中第 i 类样本的比例。</p>
+<p>对于苹果和橘子各占一半的节点：</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">Gini = 1 - 0.5² - 0.5² = 0.5</span><br></pre></td></tr></table></figure>
+
+<p>如果全是苹果：</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">Gini = 1 - 1² - 0² = 0</span><br></pre></td></tr></table></figure>
+
+<p>基尼不纯度越低，节点中的类别越集中。</p>
+<h3 id="2-划分后，要考虑子节点的大小"><a href="#2-划分后，要考虑子节点的大小" class="headerlink" title="2. 划分后，要考虑子节点的大小"></a>2. 划分后，要考虑子节点的大小</h3><p>不能只看其中一个子节点有多纯，还要计算所有子节点的加权不纯度。</p>
+<p>例如，原来的 10 个样本被分成两组：</p>
 <ul>
-<li><code>repo</code>: 你的评论仓库（格式：用户名&#x2F;仓库名）</li>
-<li><code>repo_id</code>: 从 Giscus 获取的仓库 ID</li>
-<li><code>category_id</code>: 从 Giscus 获取的分类 ID</li>
-<li><code>data-mapping: pathname</code>: 使用文章路径作为映射</li>
-<li><code>data-lang: zh-CN</code>: 界面语言设为中文</li>
-<li><code>data-reactions-enabled: 1</code>: 启用表情回应功能</li>
+<li>左边 4 个，全是苹果，基尼不纯度为 0。</li>
+<li>右边 6 个，包含 1 个苹果和 5 个橘子，基尼不纯度为 <code>5/18</code>。</li>
 </ul>
-<h3 id="5-重新生成并部署"><a href="#5-重新生成并部署" class="headerlink" title="5. 重新生成并部署"></a>5. 重新生成并部署</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hexo clean</span><br><span class="line">hexo generate</span><br><span class="line">hexo deploy</span><br></pre></td></tr></table></figure>
+<p>划分后的加权不纯度是：</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">(4/10) × 0 + (6/10) × (5/18) = 1/6 ≈ 0.167</span><br></pre></td></tr></table></figure>
 
-<h2 id="效果验证"><a href="#效果验证" class="headerlink" title="效果验证"></a>效果验证</h2><p>部署完成后，访问任意文章页面，应该能看到：</p>
+<p>相比原来的 0.5，这次划分减少了约 0.333 的不纯度。</p>
+<p>训练算法会比较候选划分，并在当前节点选择较好的一个，再对子节点重复这个过程。常见建树方法是贪心的：每一步选择当前较好的划分，不保证得到全局最优的整棵树。</p>
+<h3 id="3-熵、信息增益与不同树算法"><a href="#3-熵、信息增益与不同树算法" class="headerlink" title="3. 熵、信息增益与不同树算法"></a>3. 熵、信息增益与不同树算法</h3><p>另一个常见指标是熵：</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">H = -Σ pᵢ log₂(pᵢ)</span><br></pre></td></tr></table></figure>
+
+<p>计算时把 <code>pᵢ = 0</code> 的项视为 0。信息增益就是父节点的熵减去划分后子节点的加权熵。</p>
+<p>入门时常见的几个算法名称，可以这样区分：</p>
+<table>
+<thead>
+<tr>
+<th>算法</th>
+<th>常见划分准则与特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ID3</td>
+<td>以信息增益选择划分</td>
+</tr>
+<tr>
+<td>C4.5</td>
+<td>使用信息增益率，缓解信息增益偏好取值较多特征的问题</td>
+</tr>
+<tr>
+<td>CART</td>
+<td>构建二叉树；分类常用基尼不纯度，回归常用平方误差</td>
+</tr>
+</tbody></table>
+<p>这只是主要区别，具体实现还涉及连续特征、缺失值和剪枝等处理。scikit-learn 的决策树采用优化的 CART 实现；把 <code>criterion</code> 设置成 <code>entropy</code> 并不会让它变成完整的 ID3 或 C4.5。参见 <a href="https://scikit-learn.org/stable/modules/tree.html">决策树官方文档</a>。</p>
+<h3 id="4-树为什么容易过拟合？"><a href="#4-树为什么容易过拟合？" class="headerlink" title="4. 树为什么容易过拟合？"></a>4. 树为什么容易过拟合？</h3><p>如果不断划分，树可能长到几乎每个叶节点只剩一个训练样本。训练集上的表现很好，却可能把噪声也记了下来，导致新数据上的表现变差。</p>
+<p>常见控制方法包括：</p>
 <ul>
-<li>文章底部出现 Giscus 评论框</li>
-<li>需要登录 GitHub 才能评论</li>
-<li>评论会自动同步到仓库的 Discussions 中</li>
-<li>支持 Markdown 格式、代码高亮、表情回应</li>
+<li><code>max_depth</code>：限制树的最大深度。</li>
+<li><code>min_samples_leaf</code>：限制每个叶节点至少包含多少训练样本。</li>
+<li><code>min_samples_split</code>：限制节点继续划分所需的最少样本数。</li>
+<li><code>ccp_alpha</code>：控制代价复杂度剪枝，数值越大通常剪枝越强。</li>
 </ul>
-<h2 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h2><ol>
-<li><strong>仓库必须公开</strong>：私有仓库无法使用 Giscus</li>
-<li><strong>确保安装了 Giscus App</strong>：否则评论无法加载</li>
-<li><strong>Discussions 必须启用</strong>：在仓库设置中开启</li>
-<li><strong>首次评论会自动创建 Discussion</strong>：按文章路径命名</li>
-<li><strong>可以在 GitHub 仓库中管理评论</strong>：删除、编辑、置顶等</li>
-</ol>
+<p>具体参数需要通过验证选择。树太浅也可能欠拟合，不能只追求结构简单。</p>
+<h2 id="四、用-Python-做一次分类实验"><a href="#四、用-Python-做一次分类实验" class="headerlink" title="四、用 Python 做一次分类实验"></a>四、用 Python 做一次分类实验</h2><p>下面使用鸢尾花数据集。它包含花萼、花瓣的长度和宽度，目标是区分三种鸢尾花。</p>
+<p>先安装依赖：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">pip install scikit-learn</span><br></pre></td></tr></table></figure>
+
+<p>然后在同一份训练集和测试集上比较两个模型：</p>
+<figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">from</span> sklearn.datasets <span class="keyword">import</span> load_iris</span><br><span class="line"><span class="keyword">from</span> sklearn.model_selection <span class="keyword">import</span> train_test_split</span><br><span class="line"><span class="keyword">from</span> sklearn.pipeline <span class="keyword">import</span> make_pipeline</span><br><span class="line"><span class="keyword">from</span> sklearn.preprocessing <span class="keyword">import</span> StandardScaler</span><br><span class="line"><span class="keyword">from</span> sklearn.neighbors <span class="keyword">import</span> KNeighborsClassifier</span><br><span class="line"><span class="keyword">from</span> sklearn.tree <span class="keyword">import</span> DecisionTreeClassifier, export_text</span><br><span class="line"><span class="keyword">from</span> sklearn.metrics <span class="keyword">import</span> accuracy_score</span><br><span class="line"></span><br><span class="line">iris = load_iris()</span><br><span class="line">X_train, X_test, y_train, y_test = train_test_split(</span><br><span class="line">    iris.data,</span><br><span class="line">    iris.target,</span><br><span class="line">    test_size=<span class="number">0.3</span>,</span><br><span class="line">    random_state=<span class="number">42</span>,</span><br><span class="line">    stratify=iris.target,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 标准化只在训练集上拟合，预测时复用相同的转换。</span></span><br><span class="line">knn = make_pipeline(</span><br><span class="line">    StandardScaler(),</span><br><span class="line">    KNeighborsClassifier(n_neighbors=<span class="number">5</span>),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 常规决策树按单个特征的阈值划分，通常不需要标准化。</span></span><br><span class="line">tree = DecisionTreeClassifier(</span><br><span class="line">    max_depth=<span class="number">3</span>,</span><br><span class="line">    min_samples_leaf=<span class="number">2</span>,</span><br><span class="line">    random_state=<span class="number">42</span>,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> name, model <span class="keyword">in</span> [(<span class="string">&quot;KNN&quot;</span>, knn), (<span class="string">&quot;Decision Tree&quot;</span>, tree)]:</span><br><span class="line">    model.fit(X_train, y_train)</span><br><span class="line">    prediction = model.predict(X_test)</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">f&quot;<span class="subst">&#123;name&#125;</span> accuracy: <span class="subst">&#123;accuracy_score(y_test, prediction):<span class="number">.3</span>f&#125;</span>&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;\n决策树学到的规则：&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(export_text(tree, feature_names=<span class="built_in">list</span>(iris.feature_names)))</span><br><span class="line"><span class="built_in">print</span>(<span class="string">&quot;类别编号对应关系：&quot;</span>, <span class="built_in">dict</span>(<span class="built_in">enumerate</span>(iris.target_names)))</span><br></pre></td></tr></table></figure>
+
+<p>这里用 <code>stratify</code> 尽量保持训练集和测试集中的类别比例一致，用固定随机种子方便复现。<code>Pipeline</code> 将标准化与分类器放在同一流程里，后续做交叉验证时也能让预处理在各折的训练数据上拟合。参见 <a href="https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html">Pipeline 官方文档</a>。</p>
+<p>运行后可以观察准确率，也可以读一读决策树打印出来的规则，看看它主要使用了哪些特征。</p>
+<p>这只是一个固定参数、单次划分的入门实验，不能根据它断言哪个算法普遍更好。实际调参应在训练集内部使用交叉验证，最后再用留出的测试集评估一次。类别不平衡时，还应结合精确率、召回率、F1 和混淆矩阵，而不是只看准确率。</p>
+<h2 id="五、两种方法怎么选？"><a href="#五、两种方法怎么选？" class="headerlink" title="五、两种方法怎么选？"></a>五、两种方法怎么选？</h2><table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>K 近邻</th>
+<th>单棵决策树</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>判断依据</td>
+<td>新样本附近的训练样本</td>
+<td>从根节点到叶节点的规则</td>
+</tr>
+<tr>
+<td>训练阶段</td>
+<td>保存样本，可能构建搜索索引</td>
+<td>搜索划分并构建树</td>
+</tr>
+<tr>
+<td>单次预测</td>
+<td>需要搜索邻居</td>
+<td>沿树走一条路径</td>
+</tr>
+<tr>
+<td>特征缩放</td>
+<td>对距离计算通常很重要</td>
+<td>通常不需要</td>
+</tr>
+<tr>
+<td>主要调参方向</td>
+<td>K、距离度量、邻居权重</td>
+<td>深度、叶节点样本数、剪枝</td>
+</tr>
+<tr>
+<td>解释方式</td>
+<td>展示邻居及其距离</td>
+<td>展示判断路径，小树更易理解</td>
+</tr>
+<tr>
+<td>常见困难</td>
+<td>高维、无关特征、存储与搜索成本</td>
+<td>过拟合，对数据扰动可能敏感</td>
+</tr>
+</tbody></table>
+<p>当特征之间的距离有明确意义，且数据规模适合做邻居搜索时，可以尝试 KNN。当希望读懂模型的判断规则，或者建立一个表格数据分类基线时，可以尝试浅层决策树。</p>
+<p>两者也都能做回归：KNN 回归通常根据邻居目标值求平均或加权平均；常见的平方误差回归树在叶节点输出该节点训练样本目标值的均值。</p>
+<p>对我来说，理解这两种算法最有帮助的，是把注意力放回“模型依据什么做判断”：KNN 的关键在于相似性是否合理，决策树的关键在于划分规则是否能适用于新数据。</p>
+<p>接下来可以在同一数据集上改变 K 和树的深度，同时观察训练与验证表现。比起只记住算法名称，这样更容易看清欠拟合和过拟合是怎样发生的。</p>
 ]]></content>
       <categories>
-        <category>博客搭建</category>
+        <category>学习笔记</category>
       </categories>
       <tags>
-        <tag>Hexo</tag>
-        <tag>Giscus</tag>
-        <tag>评论系统</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>评论系统设计与实现</title>
-    <url>/2026/02/11/comment-system/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>本文记录我在博客项目中实现评论功能时，涉及的一些细节。</p>
-<hr>
-<h2 id="一、后端实现"><a href="#一、后端实现" class="headerlink" title="一、后端实现"></a>一、后端实现</h2><h3 id="1-评论实体设计（Comment）"><a href="#1-评论实体设计（Comment）" class="headerlink" title="1. 评论实体设计（Comment）"></a>1. 评论实体设计（Comment）</h3><p>评论表的核心在于<strong>自引用关系</strong>：</p>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Entity</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Comment</span> &#123;</span><br><span class="line">    <span class="meta">@Id</span></span><br><span class="line">    <span class="keyword">private</span> Long id;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> String content;  <span class="comment">// VARCHAR(1000)</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> Article article;  <span class="comment">// 所属文章</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.EAGER)</span></span><br><span class="line">    <span class="keyword">private</span> User author;  <span class="comment">// 评论作者</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@ManyToOne(fetch = FetchType.LAZY)</span></span><br><span class="line">    <span class="keyword">private</span> Comment parentComment;  <span class="comment">// 父评论（自引用关系）</span></span><br><span class="line">    </span><br><span class="line">    <span class="meta">@CreationTimestamp</span></span><br><span class="line">    <span class="keyword">private</span> LocalDateTime createdAt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="设计要点"><a href="#设计要点" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
-<li><code>parentComment</code> 指向自身，实现评论嵌套</li>
-<li>父评论使用 <code>LAZY</code>，避免循环加载</li>
-<li>作者、文章使用 <code>EAGER</code>，避免访问时频繁触发延迟加载</li>
-<li>不在实体中直接维护 children，避免 ORM 复杂度失控</li>
-</ul>
-<blockquote>
-<p>高并发场景应使用join fetch 或DTO投影来精确控制查询行为。</p>
-</blockquote>
-<hr>
-<h3 id="2-数据访问层（Repository）"><a href="#2-数据访问层（Repository）" class="headerlink" title="2. 数据访问层（Repository）"></a>2. 数据访问层（Repository）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">CommentRepository</span> <span class="keyword">extends</span> <span class="title class_">JpaRepository</span>&lt;Comment, Long&gt; &#123;</span><br><span class="line">    <span class="comment">// 按文章ID查询，升序排列（老评论在前）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByArticleIdOrderByCreatedAtAsc</span><span class="params">(Long articleId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 按作者ID查询（用于个人主页）</span></span><br><span class="line">    Page&lt;Comment&gt; <span class="title function_">findByAuthorId</span><span class="params">(Long authorId, Pageable pageable)</span>;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 查找子评论（用于级联删除）</span></span><br><span class="line">    List&lt;Comment&gt; <span class="title function_">findByParentCommentId</span><span class="params">(Long parentId)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p> 👉 <strong>递归删除时依赖 <code>findByParentCommentId</code> 查找子节点</strong></p>
-<blockquote>
-<p>评论属于高频读写表，后续应在数据库层添加必要索引。</p>
-</blockquote>
-<hr>
-<h3 id="3-评论创建逻辑（Service）"><a href="#3-评论创建逻辑（Service）" class="headerlink" title="3. 评论创建逻辑（Service）"></a>3. 评论创建逻辑（Service）</h3><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> CommentDTO <span class="title function_">createComment</span><span class="params">(Long articleId, Long userId, String content, Long parentId)</span> &#123;</span><br><span class="line">    <span class="comment">// 验证文章和用户存在</span></span><br><span class="line">    <span class="type">Article</span> <span class="variable">article</span> <span class="operator">=</span> articleRepository.findById(articleId)...</span><br><span class="line">    <span class="type">User</span> <span class="variable">author</span> <span class="operator">=</span> userRepository.findById(userId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 验证内容非空</span></span><br><span class="line">    <span class="keyword">if</span> (content == <span class="literal">null</span> || content.trim().isEmpty()) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;评论内容不能为空&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 如果是回复，验证父评论</span></span><br><span class="line">    <span class="keyword">if</span> (parentId != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="type">Comment</span> <span class="variable">parent</span> <span class="operator">=</span> commentRepository.findById(parentId)...</span><br><span class="line">        <span class="comment">// 确保父评论属于同一篇文章</span></span><br><span class="line">        <span class="keyword">if</span> (!parent.getArticle().getId().equals(articleId)) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;父评论与文章不匹配&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        comment.setParentComment(parent);<span class="comment">// 设置parentcomment</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 保存并转换为DTO</span></span><br><span class="line">    comment = commentRepository.save(comment);</span><br><span class="line">    <span class="keyword">return</span> convertToDTO(comment, userId);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="核心约束点"><a href="#核心约束点" class="headerlink" title="核心约束点"></a>核心约束点</h4><ul>
-<li>回复的父评论必须属于同一篇文章</li>
-<li>所有评论统一通过 DTO 返回，避免实体泄露</li>
-<li>创建逻辑不做层级限制，展示逻辑交给前端</li>
-</ul>
-<hr>
-<h3 id="4-递归级联删除"><a href="#4-递归级联删除" class="headerlink" title="4. 递归级联删除"></a>4. 递归级联删除</h3><p>删除一条评论时，必须同时删除：</p>
-<ol>
-<li>所有子评论（递归）</li>
-<li>所有关联的点赞记录</li>
-<li>保证外键约束不报错</li>
-<li>保证操作原子性</li>
-</ol>
-<h4 id="实现方案"><a href="#实现方案" class="headerlink" title="实现方案"></a>实现方案</h4><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">deleteComment</span><span class="params">(Long commentId, Long userId)</span> &#123;</span><br><span class="line">    <span class="type">Comment</span> <span class="variable">comment</span> <span class="operator">=</span> commentRepository.findById(commentId)...</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 权限检查：只能删除自己的评论</span></span><br><span class="line">    <span class="keyword">if</span> (!comment.getAuthor().getId().equals(userId)) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;只能删除自己的评论&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    deleteCommentWithChildren(comment);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 递归删除子评论</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">deleteCommentWithChildren</span><span class="params">(Comment comment)</span> &#123;</span><br><span class="line">    <span class="comment">// 递归删除所有子评论</span></span><br><span class="line">    List&lt;Comment&gt; children = commentRepository.findByParentCommentId(comment.getId());</span><br><span class="line">    <span class="keyword">for</span> (Comment child : children) &#123;</span><br><span class="line">        deleteCommentWithChildren(child);  <span class="comment">// 递归调用</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 先删除该评论的所有点赞（解决FK约束）</span></span><br><span class="line">    commentLikeRepository.deleteByCommentId(comment.getId());</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 最后删除评论本身</span></span><br><span class="line">    commentRepository.deleteById(comment.getId());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="设计要点-1"><a href="#设计要点-1" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
-<li>深度优先遍历（DFS）</li>
-<li>时间复杂度 O(n)</li>
-<li>使用事务保证一致性</li>
-<li>显式控制删除顺序，避免外键（FK）约束问题</li>
-</ul>
-<blockquote>
-<p>为避免复杂递归以及保留上下文，可考虑采用逻辑删除<code>private boolean deleted;</code>。</p>
-</blockquote>
-<hr>
-<h2 id="二、前端实现"><a href="#二、前端实现" class="headerlink" title="二、前端实现"></a>二、前端实现</h2><h3 id="1-数据结构设计"><a href="#1-数据结构设计" class="headerlink" title="1. 数据结构设计"></a>1. 数据结构设计</h3><p>前端接收的是<strong>平铺数组</strong>，自行构建树结构：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">data</span>(<span class="params"></span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="attr">comments</span>: [],        <span class="comment">// 平铺的评论列表（从API获取）</span></span><br><span class="line">        <span class="attr">commentTree</span>: [],     <span class="comment">// 树型结构（用于渲染）</span></span><br><span class="line">        <span class="attr">newCommentContent</span>: <span class="string">&#x27;&#x27;</span>,  <span class="comment">// 新评论内容</span></span><br><span class="line">        <span class="attr">replyingTo</span>: <span class="literal">null</span>,    <span class="comment">// 当前回复的评论对象</span></span><br><span class="line">        <span class="attr">replyContent</span>: <span class="string">&#x27;&#x27;</span>     <span class="comment">// 回复内容</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<blockquote>
-<p>选择前端构建树结构而不是后端直接递归组装，是为了保持接口简单、避免后端递归查询带来的复杂度，同时让前端掌控展示策略。</p>
-</blockquote>
-<hr>
-<h3 id="2-评论树构建与展平"><a href="#2-评论树构建与展平" class="headerlink" title="2. 评论树构建与展平"></a>2. 评论树构建与展平</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="title function_">buildCommentTree</span>(<span class="params">comments</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> map = <span class="keyword">new</span> <span class="title class_">Map</span>();</span><br><span class="line">    <span class="keyword">const</span> roots = [];</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 1. 创建映射表，每个评论作为一个节点</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        map.<span class="title function_">set</span>(comment.<span class="property">id</span>, &#123; ...comment, <span class="attr">children</span>: [] &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 构建父子关系</span></span><br><span class="line">    comments.<span class="title function_">forEach</span>(<span class="function"><span class="params">comment</span> =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">const</span> node = map.<span class="title function_">get</span>(comment.<span class="property">id</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 顶级评论（没有父评论）</span></span><br><span class="line">        <span class="keyword">if</span> (!comment.<span class="property">parentId</span>) &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 找到最顶层的父评论（展平多层嵌套）</span></span><br><span class="line">        <span class="keyword">let</span> parent = map.<span class="title function_">get</span>(comment.<span class="property">parentId</span>);</span><br><span class="line">        <span class="keyword">while</span> (parent &amp;&amp; parent.<span class="property">parentId</span>) &#123;</span><br><span class="line">            parent = map.<span class="title function_">get</span>(parent.<span class="property">parentId</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 将当前评论添加到顶层父评论的children中</span></span><br><span class="line">        <span class="keyword">if</span> (parent) &#123;</span><br><span class="line">            parent.<span class="property">children</span>.<span class="title function_">push</span>(node);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            roots.<span class="title function_">push</span>(node);  <span class="comment">// 孤儿节点作为顶级评论</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> roots;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h4 id="设计要点-2"><a href="#设计要点-2" class="headerlink" title="设计要点"></a>设计要点</h4><ul>
-<li>支持任意层级回复</li>
-<li>UI 只展示两层</li>
-<li>不需要后端额外接口</li>
-<li>构建复杂度 O(n)</li>
-</ul>
-<blockquote>
-<p>前端只展示两层结构，避免前端无限递归渲染</p>
-</blockquote>
-]]></content>
-      <categories>
-        <category>项目总结</category>
-      </categories>
-      <tags>
-        <tag>Spring Boot</tag>
-        <tag>数据库设计</tag>
-        <tag>评论系统</tag>
+        <tag>机器学习</tag>
+        <tag>K近邻</tag>
+        <tag>决策树</tag>
+        <tag>Python</tag>
       </tags>
   </entry>
   <entry>
@@ -590,6 +617,84 @@
         <tag>Hexo</tag>
         <tag>Butterfly</tag>
         <tag>博客</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>页面刷新时的 Load 动画是如何实现的</title>
+    <url>/2026/04/23/refresh-load-animation-implementation/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>之前在看自己博客刷新的时候，发现页面总会先出来一个短暂的 Load 动画：有时是全屏遮罩，有时是进度条，有时只是中间一个在转的小图标。</p>
+<p>一开始我以为这是浏览器或者 Hexo 默认带的效果，后来翻了一下 Butterfly 的源码，才发现它其实是主题自己加的一层“过渡界面”。这篇文章就顺着这条线，记录一下它到底是怎么实现的。</p>
+<h2 id="它从哪里进入页面"><a href="#它从哪里进入页面" class="headerlink" title="它从哪里进入页面"></a>它从哪里进入页面</h2><p>Butterfly 会在全局布局里直接注入加载层。换句话说，页面刚开始渲染的时候，<code>body</code> 里面就已经先放进去了这层结构。</p>
+<p>关键入口在布局文件里：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">body</span><br><span class="line">  !=partial(&#x27;includes/loading/index&#x27;, &#123;&#125;, &#123;cache: true&#125;)</span><br></pre></td></tr></table></figure>
+
+<p>这个 <code>index</code> 入口会再根据配置选择不同的加载方案：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">if theme.preloader.enable</span><br><span class="line">  if theme.preloader.source === 1</span><br><span class="line">    include ./fullpage-loading.pug</span><br><span class="line">  else</span><br><span class="line">    include ./pace.pug</span><br></pre></td></tr></table></figure>
+
+<p>所以我现在看到的刷新动画，其实就两种形态：</p>
+<ul>
+<li><code>source: 1</code> 时是全屏 preloader</li>
+<li><code>source: 2</code> 时是 pace.js 进度条</li>
+</ul>
+<h2 id="全屏-Load-动画怎么工作"><a href="#全屏-Load-动画怎么工作" class="headerlink" title="全屏 Load 动画怎么工作"></a>全屏 Load 动画怎么工作</h2><p>如果用的是全屏 preloader，页面会先渲染出一个固定定位的遮罩层：左右两块背景，加中间那个 spinner。效果很简单，但第一眼挺有存在感。</p>
+<p>对应的核心结构如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">#loading-box</span><br><span class="line">  .loading-left-bg</span><br><span class="line">  .loading-right-bg</span><br><span class="line">  .spinner-box</span><br><span class="line">    .configure-border-1</span><br><span class="line">      .configure-core</span><br><span class="line">    .configure-border-2</span><br><span class="line">      .configure-core</span><br><span class="line">    .loading-word= _p(&#x27;loading&#x27;)</span><br></pre></td></tr></table></figure>
+
+<p>这层样式通过固定定位把整个视口盖住，保证页面还没准备好之前，用户看到的不是半成品内容，而是一个完整的加载状态。</p>
+<p>CSS 的关键点有三个：</p>
+<ul>
+<li><code>#loading-box</code> 以及左右背景块都是 <code>position: fixed</code></li>
+<li><code>spinner-box</code> 覆盖在正中央，展示旋转动画</li>
+<li>当加上 <code>.loaded</code> 类后，左右背景会向两侧平移并退出视口，spinner 也会被隐藏</li>
+</ul>
+<p>看到这里我就基本明白了：它并不是靠复杂的 JS 一帧一帧去画动画，而是切换 class，让 CSS 的 transition 和 keyframes 自己跑起来。</p>
+<h2 id="什么时候结束加载"><a href="#什么时候结束加载" class="headerlink" title="什么时候结束加载"></a>什么时候结束加载</h2><p>真正决定动画什么时候消失的，是一段内联脚本。</p>
+<p>它做了两件事：</p>
+<h3 id="1-先进入加载状态"><a href="#1-先进入加载状态" class="headerlink" title="1. 先进入加载状态"></a>1. 先进入加载状态</h3><p>脚本一开始会执行 <code>initLoading()</code>：</p>
+<figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="attr">initLoading</span>: <span class="function">() =&gt;</span> &#123;</span><br><span class="line">  $body.<span class="property">style</span>.<span class="property">overflow</span> = <span class="string">&#x27;hidden&#x27;</span></span><br><span class="line">  $loadingBox.<span class="property">classList</span>.<span class="title function_">remove</span>(<span class="string">&#x27;loaded&#x27;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里会先把 <code>body</code> 的滚动锁住，避免页面还没加载完的时候，用户就已经开始乱滚导致视觉闪动。</p>
+<h3 id="2-再在合适时机结束加载"><a href="#2-再在合适时机结束加载" class="headerlink" title="2. 再在合适时机结束加载"></a>2. 再在合适时机结束加载</h3><p>随后它会根据页面状态决定什么时候移除加载层：</p>
+<figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (<span class="variable language_">document</span>.<span class="property">readyState</span> === <span class="string">&#x27;complete&#x27;</span>) &#123;</span><br><span class="line">  preloader.<span class="title function_">endLoading</span>()</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">  <span class="variable language_">window</span>.<span class="title function_">addEventListener</span>(<span class="string">&#x27;load&#x27;</span>, preloader.<span class="property">endLoading</span>)</span><br><span class="line">  <span class="variable language_">document</span>.<span class="title function_">addEventListener</span>(<span class="string">&#x27;DOMContentLoaded&#x27;</span>, preloader.<span class="property">endLoading</span>)</span><br><span class="line">  <span class="built_in">setTimeout</span>(preloader.<span class="property">endLoading</span>, <span class="number">7000</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这段逻辑其实挺典型，我自己看下来就是：</p>
+<ul>
+<li><code>DOMContentLoaded</code> 负责在 DOM 结构可用时尽快结束</li>
+<li><code>load</code> 负责等图片、样式、脚本这些资源真正加载完</li>
+<li><code>setTimeout</code> 是兜底，防止某些资源出问题后加载层一直挂着不消失</li>
+</ul>
+<p>最终执行 <code>endLoading()</code> 时，会恢复滚动并给加载层加上 <code>.loaded</code>：</p>
+<figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="attr">endLoading</span>: <span class="function">() =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">if</span> ($loadingBox.<span class="property">classList</span>.<span class="title function_">contains</span>(<span class="string">&#x27;loaded&#x27;</span>)) <span class="keyword">return</span></span><br><span class="line">  $body.<span class="property">style</span>.<span class="property">overflow</span> = <span class="string">&#x27;&#x27;</span></span><br><span class="line">  $loadingBox.<span class="property">classList</span>.<span class="title function_">add</span>(<span class="string">&#x27;loaded&#x27;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>等 <code>loaded</code> 类加上去之后，CSS 动画开始生效，左右背景滑出，整个 Load 动画也就结束了。这个过程很干脆，没有多余的逻辑。</p>
+<h2 id="为什么刷新时特别明显"><a href="#为什么刷新时特别明显" class="headerlink" title="为什么刷新时特别明显"></a>为什么刷新时特别明显</h2><p>“刷新页面”这个场景和“站内切页”不太一样。</p>
+<p>刷新时浏览器会重新请求整页，主题的加载层也会从最初就出现在 HTML 里，所以用户通常会先看到一个完整的过渡界面，等页面就绪后再被移除。</p>
+<p>如果主题启用了 PJAX，站内跳转又会多一层处理：</p>
+<figure class="highlight js"><table><tr><td class="code"><pre><span class="line">btf.<span class="title function_">addGlobalFn</span>(<span class="string">&#x27;pjaxSend&#x27;</span>, preloader.<span class="property">initLoading</span>, <span class="string">&#x27;preloader_init&#x27;</span>)</span><br><span class="line">btf.<span class="title function_">addGlobalFn</span>(<span class="string">&#x27;pjaxComplete&#x27;</span>, preloader.<span class="property">endLoading</span>, <span class="string">&#x27;preloader_end&#x27;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>这也意味着，不只是首次刷新会出现动画，后续的局部切页同样会沿用这一套加载逻辑。</p>
+<h2 id="如果想改成进度条"><a href="#如果想改成进度条" class="headerlink" title="如果想改成进度条"></a>如果想改成进度条</h2><p>Butterfly 还预留了 pace.js 方案。它不会显示全屏遮罩，而是显示一条页面顶部的进度条。</p>
+<p>对应逻辑更简单：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">script.</span><br><span class="line">  window.paceOptions = &#123;</span><br><span class="line">    restartOnPushState: false</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  btf.addGlobalFn(&#x27;pjaxSend&#x27;, () =&gt; &#123;</span><br><span class="line">    Pace.restart()</span><br><span class="line">  &#125;, &#x27;pace_restart&#x27;)</span><br><span class="line"></span><br><span class="line">link(rel=&quot;stylesheet&quot;, href=url_for(theme.preloader.pace_css_url || theme.asset.pace_default_css))</span><br><span class="line">script(src=url_for(theme.asset.pace_js))</span><br></pre></td></tr></table></figure>
+
+<p>如果你更偏好轻量、克制一点的视觉效果，我觉得把 <code>preloader.source</code> 切到 <code>2</code> 会更舒服一点。</p>
+<h2 id="配置入口"><a href="#配置入口" class="headerlink" title="配置入口"></a>配置入口</h2><p>这部分配置在主题配置文件里：</p>
+<figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="attr">preloader:</span></span><br><span class="line">  <span class="attr">enable:</span> <span class="literal">false</span></span><br><span class="line">  <span class="comment"># 1. fullpage-loading</span></span><br><span class="line">  <span class="comment"># 2. pace (progress bar)</span></span><br><span class="line">  <span class="attr">source:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">pace_css_url:</span></span><br></pre></td></tr></table></figure>
+
+<p>如果要自己改配置，我觉得最需要关注的还是这两个点：</p>
+<ul>
+<li><code>enable</code> 控制是否启用加载动画</li>
+<li><code>source</code> 控制是全屏遮罩还是进度条</li>
+</ul>
+]]></content>
+      <categories>
+        <category>博客搭建</category>
+      </categories>
+      <tags>
+        <tag>Hexo</tag>
+        <tag>Butterfly</tag>
+        <tag>页面加载</tag>
+        <tag>前端</tag>
       </tags>
   </entry>
   <entry>
@@ -719,87 +824,173 @@
         <category>项目总结</category>
       </categories>
       <tags>
-        <tag>系统设计</tag>
         <tag>Java</tag>
         <tag>设计模式</tag>
+        <tag>系统设计</tag>
       </tags>
   </entry>
   <entry>
-    <title>页面刷新时的 Load 动画是如何实现的</title>
-    <url>/2026/04/23/refresh-load-animation-implementation/</url>
-    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>之前在看自己博客刷新的时候，发现页面总会先出来一个短暂的 Load 动画：有时是全屏遮罩，有时是进度条，有时只是中间一个在转的小图标。</p>
-<p>一开始我以为这是浏览器或者 Hexo 默认带的效果，后来翻了一下 Butterfly 的源码，才发现它其实是主题自己加的一层“过渡界面”。这篇文章就顺着这条线，记录一下它到底是怎么实现的。</p>
-<h2 id="它从哪里进入页面"><a href="#它从哪里进入页面" class="headerlink" title="它从哪里进入页面"></a>它从哪里进入页面</h2><p>Butterfly 会在全局布局里直接注入加载层。换句话说，页面刚开始渲染的时候，<code>body</code> 里面就已经先放进去了这层结构。</p>
-<p>关键入口在布局文件里：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">body</span><br><span class="line">  !=partial(&#x27;includes/loading/index&#x27;, &#123;&#125;, &#123;cache: true&#125;)</span><br></pre></td></tr></table></figure>
-
-<p>这个 <code>index</code> 入口会再根据配置选择不同的加载方案：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">if theme.preloader.enable</span><br><span class="line">  if theme.preloader.source === 1</span><br><span class="line">    include ./fullpage-loading.pug</span><br><span class="line">  else</span><br><span class="line">    include ./pace.pug</span><br></pre></td></tr></table></figure>
-
-<p>所以我现在看到的刷新动画，其实就两种形态：</p>
+    <title>消息通知系统</title>
+    <url>/2026/03/07/notification-system/</url>
+    <content><![CDATA[<link rel="stylesheet" class="aplayer-secondary-style-marker" href="\assets\css\APlayer.min.css"><script src="\assets\js\APlayer.min.js" class="aplayer-secondary-script-marker"></script><p>最近在给自己的博客系统补一些互动功能，比如点赞、收藏、关注之类的。<br>做着做着就发现一个问题：用户其实不知道别人对他做了什么。</p>
+<p>比如：</p>
 <ul>
-<li><code>source: 1</code> 时是全屏 preloader</li>
-<li><code>source: 2</code> 时是 pace.js 进度条</li>
+<li>有人点赞了你的文章</li>
+<li>有人收藏了你的文章</li>
+<li>有人关注了你</li>
+<li>或者有人给你发了私信</li>
 </ul>
-<h2 id="全屏-Load-动画怎么工作"><a href="#全屏-Load-动画怎么工作" class="headerlink" title="全屏 Load 动画怎么工作"></a>全屏 Load 动画怎么工作</h2><p>如果用的是全屏 preloader，页面会先渲染出一个固定定位的遮罩层：左右两块背景，加中间那个 spinner。效果很简单，但第一眼挺有存在感。</p>
-<p>对应的核心结构如下：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">#loading-box</span><br><span class="line">  .loading-left-bg</span><br><span class="line">  .loading-right-bg</span><br><span class="line">  .spinner-box</span><br><span class="line">    .configure-border-1</span><br><span class="line">      .configure-core</span><br><span class="line">    .configure-border-2</span><br><span class="line">      .configure-core</span><br><span class="line">    .loading-word= _p(&#x27;loading&#x27;)</span><br></pre></td></tr></table></figure>
-
-<p>这层样式通过固定定位把整个视口盖住，保证页面还没准备好之前，用户看到的不是半成品内容，而是一个完整的加载状态。</p>
-<p>CSS 的关键点有三个：</p>
+<p>如果没有通知系统，这些行为基本就是“悄悄发生”，用户完全感知不到。</p>
+<p>所以就顺手把消息通知模块也做了一遍。这篇文章主要记录一下整个实现过程，以及中间踩的一些坑。</p>
+<h2 id="一、先想清楚通知是什么"><a href="#一、先想清楚通知是什么" class="headerlink" title="一、先想清楚通知是什么"></a>一、先想清楚通知是什么</h2><p>一开始我其实想过几种设计，比如：</p>
 <ul>
-<li><code>#loading-box</code> 以及左右背景块都是 <code>position: fixed</code></li>
-<li><code>spinner-box</code> 覆盖在正中央，展示旋转动画</li>
-<li>当加上 <code>.loaded</code> 类后，左右背景会向两侧平移并退出视口，spinner 也会被隐藏</li>
+<li>点赞通知一张表</li>
+<li>评论通知一张表</li>
+<li>关注通知一张表</li>
 </ul>
-<p>看到这里我就基本明白了：它并不是靠复杂的 JS 一帧一帧去画动画，而是切换 class，让 CSS 的 transition 和 keyframes 自己跑起来。</p>
-<h2 id="什么时候结束加载"><a href="#什么时候结束加载" class="headerlink" title="什么时候结束加载"></a>什么时候结束加载</h2><p>真正决定动画什么时候消失的，是一段内联脚本。</p>
-<p>它做了两件事：</p>
-<h3 id="1-先进入加载状态"><a href="#1-先进入加载状态" class="headerlink" title="1. 先进入加载状态"></a>1. 先进入加载状态</h3><p>脚本一开始会执行 <code>initLoading()</code>：</p>
-<figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="attr">initLoading</span>: <span class="function">() =&gt;</span> &#123;</span><br><span class="line">  $body.<span class="property">style</span>.<span class="property">overflow</span> = <span class="string">&#x27;hidden&#x27;</span></span><br><span class="line">  $loadingBox.<span class="property">classList</span>.<span class="title function_">remove</span>(<span class="string">&#x27;loaded&#x27;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这里会先把 <code>body</code> 的滚动锁住，避免页面还没加载完的时候，用户就已经开始乱滚导致视觉闪动。</p>
-<h3 id="2-再在合适时机结束加载"><a href="#2-再在合适时机结束加载" class="headerlink" title="2. 再在合适时机结束加载"></a>2. 再在合适时机结束加载</h3><p>随后它会根据页面状态决定什么时候移除加载层：</p>
-<figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (<span class="variable language_">document</span>.<span class="property">readyState</span> === <span class="string">&#x27;complete&#x27;</span>) &#123;</span><br><span class="line">  preloader.<span class="title function_">endLoading</span>()</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">  <span class="variable language_">window</span>.<span class="title function_">addEventListener</span>(<span class="string">&#x27;load&#x27;</span>, preloader.<span class="property">endLoading</span>)</span><br><span class="line">  <span class="variable language_">document</span>.<span class="title function_">addEventListener</span>(<span class="string">&#x27;DOMContentLoaded&#x27;</span>, preloader.<span class="property">endLoading</span>)</span><br><span class="line">  <span class="built_in">setTimeout</span>(preloader.<span class="property">endLoading</span>, <span class="number">7000</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>这段逻辑其实挺典型，我自己看下来就是：</p>
+<p>但很快发现这样会非常麻烦。</p>
+<p>更简单的方式其实是把通知抽象成一条行为记录：</p>
+<p>某个用户对另一个用户做了一件事情。</p>
+<p>于是通知结构其实只需要几个关键字段：</p>
 <ul>
-<li><code>DOMContentLoaded</code> 负责在 DOM 结构可用时尽快结束</li>
-<li><code>load</code> 负责等图片、样式、脚本这些资源真正加载完</li>
-<li><code>setTimeout</code> 是兜底，防止某些资源出问题后加载层一直挂着不消失</li>
+<li>通知接收者</li>
+<li>操作发起者</li>
+<li>操作类型</li>
+<li>是否已读</li>
+<li>创建时间</li>
+<li>（如果涉及文章）文章 ID</li>
 </ul>
-<p>最终执行 <code>endLoading()</code> 时，会恢复滚动并给加载层加上 <code>.loaded</code>：</p>
-<figure class="highlight js"><table><tr><td class="code"><pre><span class="line"><span class="attr">endLoading</span>: <span class="function">() =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">if</span> ($loadingBox.<span class="property">classList</span>.<span class="title function_">contains</span>(<span class="string">&#x27;loaded&#x27;</span>)) <span class="keyword">return</span></span><br><span class="line">  $body.<span class="property">style</span>.<span class="property">overflow</span> = <span class="string">&#x27;&#x27;</span></span><br><span class="line">  $loadingBox.<span class="property">classList</span>.<span class="title function_">add</span>(<span class="string">&#x27;loaded&#x27;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>于是最后设计了一张 <code>notifications</code> 表。</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> notifications (</span><br><span class="line">    id <span class="type">BIGINT</span> <span class="keyword">PRIMARY KEY</span> AUTO_INCREMENT,</span><br><span class="line">    user_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    actor_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    type <span class="type">VARCHAR</span>(<span class="number">50</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">    article_id <span class="type">BIGINT</span>,</span><br><span class="line">    message_content <span class="type">VARCHAR</span>(<span class="number">1000</span>),</span><br><span class="line">    is_read <span class="type">BOOLEAN</span> <span class="keyword">DEFAULT</span> <span class="literal">FALSE</span>,</span><br><span class="line">    created_at <span class="type">TIMESTAMP</span> <span class="keyword">DEFAULT</span> <span class="built_in">CURRENT_TIMESTAMP</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
 
-<p>等 <code>loaded</code> 类加上去之后，CSS 动画开始生效，左右背景滑出，整个 Load 动画也就结束了。这个过程很干脆，没有多余的逻辑。</p>
-<h2 id="为什么刷新时特别明显"><a href="#为什么刷新时特别明显" class="headerlink" title="为什么刷新时特别明显"></a>为什么刷新时特别明显</h2><p>“刷新页面”这个场景和“站内切页”不太一样。</p>
-<p>刷新时浏览器会重新请求整页，主题的加载层也会从最初就出现在 HTML 里，所以用户通常会先看到一个完整的过渡界面，等页面就绪后再被移除。</p>
-<p>如果主题启用了 PJAX，站内跳转又会多一层处理：</p>
-<figure class="highlight js"><table><tr><td class="code"><pre><span class="line">btf.<span class="title function_">addGlobalFn</span>(<span class="string">&#x27;pjaxSend&#x27;</span>, preloader.<span class="property">initLoading</span>, <span class="string">&#x27;preloader_init&#x27;</span>)</span><br><span class="line">btf.<span class="title function_">addGlobalFn</span>(<span class="string">&#x27;pjaxComplete&#x27;</span>, preloader.<span class="property">endLoading</span>, <span class="string">&#x27;preloader_end&#x27;</span>)</span><br></pre></td></tr></table></figure>
-
-<p>这也意味着，不只是首次刷新会出现动画，后续的局部切页同样会沿用这一套加载逻辑。</p>
-<h2 id="如果想改成进度条"><a href="#如果想改成进度条" class="headerlink" title="如果想改成进度条"></a>如果想改成进度条</h2><p>Butterfly 还预留了 pace.js 方案。它不会显示全屏遮罩，而是显示一条页面顶部的进度条。</p>
-<p>对应逻辑更简单：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">script.</span><br><span class="line">  window.paceOptions = &#123;</span><br><span class="line">    restartOnPushState: false</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  btf.addGlobalFn(&#x27;pjaxSend&#x27;, () =&gt; &#123;</span><br><span class="line">    Pace.restart()</span><br><span class="line">  &#125;, &#x27;pace_restart&#x27;)</span><br><span class="line"></span><br><span class="line">link(rel=&quot;stylesheet&quot;, href=url_for(theme.preloader.pace_css_url || theme.asset.pace_default_css))</span><br><span class="line">script(src=url_for(theme.asset.pace_js))</span><br></pre></td></tr></table></figure>
-
-<p>如果你更偏好轻量、克制一点的视觉效果，我觉得把 <code>preloader.source</code> 切到 <code>2</code> 会更舒服一点。</p>
-<h2 id="配置入口"><a href="#配置入口" class="headerlink" title="配置入口"></a>配置入口</h2><p>这部分配置在主题配置文件里：</p>
-<figure class="highlight yml"><table><tr><td class="code"><pre><span class="line"><span class="attr">preloader:</span></span><br><span class="line">  <span class="attr">enable:</span> <span class="literal">false</span></span><br><span class="line">  <span class="comment"># 1. fullpage-loading</span></span><br><span class="line">  <span class="comment"># 2. pace (progress bar)</span></span><br><span class="line">  <span class="attr">source:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">pace_css_url:</span></span><br></pre></td></tr></table></figure>
-
-<p>如果要自己改配置，我觉得最需要关注的还是这两个点：</p>
+<p>这里有两个字段比较关键。</p>
+<p><code>user_id</code><br>表示通知接收者。</p>
+<p>比如：</p>
+<p>“A 给 B 点赞”</p>
+<p>这里 <code>user_id = B</code>。</p>
+<p><code>actor_id</code><br>表示触发行为的人。</p>
+<p>同样这个例子里：</p>
+<p><code>actor_id = A</code>。</p>
+<p><code>type</code><br>通知类型，用来区分不同通知。</p>
+<p>目前我的系统里大概有几种：</p>
 <ul>
-<li><code>enable</code> 控制是否启用加载动画</li>
-<li><code>source</code> 控制是全屏遮罩还是进度条</li>
+<li><code>like</code></li>
+<li><code>favorite</code></li>
+<li><code>comment</code></li>
+<li><code>follow</code></li>
+<li><code>private_message</code></li>
 </ul>
+<p>这种设计的好处是以后扩展会很方便，比如以后想加：</p>
+<ul>
+<li>系统通知</li>
+<li>管理员警告</li>
+<li>评论回复提醒</li>
+</ul>
+<p>都可以直接扩展 <code>type</code>。</p>
+<h2 id="二、通知是在哪生成的"><a href="#二、通知是在哪生成的" class="headerlink" title="二、通知是在哪生成的"></a>二、通知是在哪生成的</h2><p>通知本身其实只是一个附属功能，它一定是伴随着其他业务产生的。</p>
+<p>比如：</p>
+<ul>
+<li>点赞成功</li>
+<li>评论成功</li>
+<li>关注成功</li>
+</ul>
+<p>所以我的做法是把通知逻辑统一封装在一个 <code>NotificationService</code> 里。</p>
+<p>各个业务模块只需要在操作成功之后调用它。</p>
+<p>比如点赞文章的时候：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">notificationService.createNotification(</span><br><span class="line">    article.getAuthor().getId(),</span><br><span class="line">    userId,</span><br><span class="line">    <span class="string">&quot;like&quot;</span>,</span><br><span class="line">    articleId</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p>收藏、关注基本也是同样的逻辑。</p>
+<p>这样做的好处是：</p>
+<ul>
+<li>通知逻辑和业务逻辑是解耦的</li>
+<li>以后如果要改通知系统，只需要改一个地方</li>
+</ul>
+<h2 id="三、未读通知计数"><a href="#三、未读通知计数" class="headerlink" title="三、未读通知计数"></a>三、未读通知计数</h2><p>通知列表其实很好做，分页查数据库就行。</p>
+<p>真正麻烦的是未读通知数。</p>
+<p>因为很多地方都会显示它，比如：</p>
+<ul>
+<li>页面右上角的小红点</li>
+<li>消息中心</li>
+<li>移动端提示</li>
+</ul>
+<p>如果每次都查数据库：</p>
+<p><code>countByUserIdAndIsReadFalse(userId)</code></p>
+<p>在用户量大的情况下其实挺浪费资源的。</p>
+<p>所以我给未读计数加了一层 Redis 缓存。</p>
+<p>逻辑很简单：</p>
+<ul>
+<li>先查 Redis</li>
+<li>没命中再查数据库</li>
+<li>查到结果写回 Redis</li>
+</ul>
+<p>代码大概是这样：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">long</span> <span class="title function_">getUnreadCount</span><span class="params">(Long userId)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> <span class="string">&quot;notification:unread:count:&quot;</span> + userId;</span><br><span class="line"></span><br><span class="line">    <span class="type">Object</span> <span class="variable">cached</span> <span class="operator">=</span> redisUtil.get(key);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (cached != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> Long.parseLong(cached.toString());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> <span class="variable">count</span> <span class="operator">=</span> notificationRepository</span><br><span class="line">            .countByUserIdAndIsReadFalse(userId);</span><br><span class="line"></span><br><span class="line">    redisUtil.set(key, count, <span class="number">1800</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> count;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样大部分请求都会直接命中缓存。</p>
+<h2 id="四、缓存更新策略"><a href="#四、缓存更新策略" class="headerlink" title="四、缓存更新策略"></a>四、缓存更新策略</h2><p>缓存加上去之后，还要解决一个问题：什么时候更新 Redis？</p>
+<p>我的策略是：</p>
+<p>新通知产生的时候：</p>
+<p>Redis <code>count +1</code>，但前提是缓存已经存在。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (redisUtil.hasKey(countKey)) &#123;</span><br><span class="line">    redisUtil.incr(countKey, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果缓存不存在就不管，因为下次查询会重新建立缓存。</p>
+<p>而当通知被标记为已读时，我一开始的想法是：</p>
+<p><code>count -1</code></p>
+<p>但后来发现这个方案在并发情况下其实容易出问题。</p>
+<p>比如：</p>
+<ul>
+<li>用户同时标记多条通知</li>
+<li>或者新通知和标记已读同时发生</li>
+</ul>
+<p>最后可能导致计数不准确。</p>
+<p>所以最后我选择了一个更简单的方法：</p>
+<p>直接删除缓存。</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">redisUtil.delete(countKey);</span><br></pre></td></tr></table></figure>
+
+<p>这样下次查询时会重新统计数据库。</p>
+<p>虽然多查了一次数据库，但逻辑会简单很多，也更安全。</p>
+<h2 id="五、数据库索引"><a href="#五、数据库索引" class="headerlink" title="五、数据库索引"></a>五、数据库索引</h2><p>通知列表是一个比较典型的查询：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">WHERE</span> user_id <span class="operator">=</span> ?</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> created_at <span class="keyword">DESC</span></span><br></pre></td></tr></table></figure>
+
+<p>另外一个高频查询是：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">WHERE</span> user_id <span class="operator">=</span> ?</span><br><span class="line"><span class="keyword">AND</span> is_read <span class="operator">=</span> <span class="literal">false</span></span><br></pre></td></tr></table></figure>
+
+<p>所以我给表加了一个联合索引：</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">INDEX idx_user_read (user_id, is_read, created_at <span class="keyword">DESC</span>)</span><br></pre></td></tr></table></figure>
+
+<p>这个索引基本可以覆盖：</p>
+<ul>
+<li>通知列表查询</li>
+<li>未读通知查询</li>
+<li>未读数量统计</li>
+</ul>
+<p>效果还是挺明显的。</p>
+<h2 id="六、一个小坑"><a href="#六、一个小坑" class="headerlink" title="六、一个小坑"></a>六、一个小坑</h2><p>功能写完之后测试的时候，我发现一个很奇怪的现象：</p>
+<p>我给自己的文章点赞，系统也给我发了一条通知。</p>
+<p>技术上没问题，但体验非常奇怪。</p>
+<p>后来就在创建通知的时候加了一句判断：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (userId.equals(actorId)) &#123;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样就不会出现自己通知自己的情况了。</p>
+<h2 id="七、如果以后要升级"><a href="#七、如果以后要升级" class="headerlink" title="七、如果以后要升级"></a>七、如果以后要升级</h2><p>现在这个通知系统其实是一个比较基础的实现，如果继续完善的话还有不少可以做的。</p>
+<p>比如：</p>
+<h3 id="1-实时通知"><a href="#1-实时通知" class="headerlink" title="1. 实时通知"></a>1. 实时通知</h3><p>现在前端是每隔一段时间轮询接口。</p>
+<p>如果用 WebSocket，其实可以做到真正的实时推送。</p>
+<h3 id="2-消息队列"><a href="#2-消息队列" class="headerlink" title="2. 消息队列"></a>2. 消息队列</h3><p>现在通知是同步创建的。</p>
+<p>如果以后并发比较高，可以把通知放到 MQ 里异步处理。</p>
+<p>流程会变成：</p>
+<p>用户操作<br>↓<br>发送通知事件<br>↓<br>消息队列<br>↓<br>通知服务消费<br>↓<br>写入数据库</p>
+<p>这样可以减少主业务的延迟。</p>
 ]]></content>
       <categories>
-        <category>博客搭建</category>
+        <category>项目总结</category>
       </categories>
       <tags>
-        <tag>Hexo</tag>
-        <tag>Butterfly</tag>
-        <tag>页面加载</tag>
-        <tag>前端</tag>
+        <tag>Spring Boot</tag>
+        <tag>数据库设计</tag>
+        <tag>系统设计</tag>
+        <tag>Redis</tag>
+        <tag>通知系统</tag>
       </tags>
   </entry>
 </search>
